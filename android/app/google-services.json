@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "424768951438",
+    "project_id": "whisky-shop-point",
+    "storage_bucket": "whisky-shop-point.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:424768951438:android:c172b8e79db35bb0cb65df",
+        "android_client_info": {
+          "package_name": "com.whiskyshop.whiskyshop_app"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyBQIJWePC0ch1t5Zz7lK-KPy_f2uqdjMD4"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

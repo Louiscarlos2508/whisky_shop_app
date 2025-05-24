@@ -1,0 +1,27 @@
+[debug] [2025-03-11T12:30:26.180Z] ----------------------------------------------------------------------
+[debug] [2025-03-11T12:30:26.187Z] Command:       C:\Program Files\nodejs\node.exe C:\Users\MOMY\AppData\Roaming\npm\node_modules\firebase-tools\lib\bin\firebase.js projects:list --json
+[debug] [2025-03-11T12:30:26.188Z] CLI Version:   13.32.0
+[debug] [2025-03-11T12:30:26.188Z] Platform:      win32
+[debug] [2025-03-11T12:30:26.188Z] Node Version:  v22.14.0
+[debug] [2025-03-11T12:30:26.189Z] Time:          Tue Mar 11 2025 13:30:26 GMT+0100 (heure normale d’Europe centrale)
+[debug] [2025-03-11T12:30:26.190Z] ----------------------------------------------------------------------
+[debug] 
+[debug] [2025-03-11T12:30:27.094Z] Object "" in "firebase.json" has unknown property: {"additionalProperty":"flutter"}
+[debug] [2025-03-11T12:30:27.105Z] > command requires scopes: ["email","openid","https://www.googleapis.com/auth/cloudplatformprojects.readonly","https://www.googleapis.com/auth/firebase","https://www.googleapis.com/auth/cloud-platform"]
+[debug] [2025-03-11T12:30:27.107Z] > authorizing via signed-in user (korocomp@gmail.com)
+[debug] [2025-03-11T12:30:27.121Z] Checked if tokens are valid: false, expires at: 1741615538241
+[debug] [2025-03-11T12:30:27.121Z] Checked if tokens are valid: false, expires at: 1741615538241
+[debug] [2025-03-11T12:30:27.121Z] > refreshing access token with scopes: []
+[debug] [2025-03-11T12:30:27.126Z] >>> [apiv2][query] POST https://www.googleapis.com/oauth2/v3/token [none]
+[debug] [2025-03-11T12:30:27.127Z] >>> [apiv2][body] POST https://www.googleapis.com/oauth2/v3/token [omitted]
+[debug] [2025-03-11T12:30:27.273Z] Error: EPIPE: broken pipe, write
+    at Socket._write (node:internal/net:63:18)
+    at writeOrBuffer (node:internal/streams/writable:572:12)
+    at _write (node:internal/streams/writable:501:10)
+    at Writable.write (node:internal/streams/writable:510:10)
+    at Ora.start (C:\Users\MOMY\AppData\Roaming\npm\node_modules\firebase-tools\node_modules\ora\index.js:304:17)
+    at Command.actionFn (C:\Users\MOMY\AppData\Roaming\npm\node_modules\firebase-tools\lib\commands\projects-list.js:48:73)
+    at C:\Users\MOMY\AppData\Roaming\npm\node_modules\firebase-tools\lib\command.js:243:25
+    at process.processTicksAndRejections (node:internal/process/task_queues:105:5)
+[error] 
+[error] Error: An unexpected error has occurred.

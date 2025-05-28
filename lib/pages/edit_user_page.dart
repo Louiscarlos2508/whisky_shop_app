@@ -1,6 +1,5 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
-import 'package:intl/intl.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 class EditUserPage extends StatefulWidget {
@@ -21,7 +20,7 @@ class _EditUserPageState extends State<EditUserPage> {
   final TextEditingController _fullNameController = TextEditingController();
   final TextEditingController _phoneController = TextEditingController();
   final TextEditingController _startDateController = TextEditingController();
-  final TextEditingController _maritalStatusController = TextEditingController();
+  //final TextEditingController _maritalStatusController = TextEditingController();
   final TextEditingController _addressController = TextEditingController();
   final TextEditingController _emergencyContactController = TextEditingController();
 
@@ -32,21 +31,19 @@ class _EditUserPageState extends State<EditUserPage> {
 
   String? _selectedRole;
   String? _selectedEducationLevel;
+  String? _selectedMaritalStatuses;
   bool _isRegisteredCnss = false;
 
   List<String> _rolesFromDb = [];
-  final List<String> _educationLevels = [
-    'Aucun',
-    'Primaire',
-    'Secondaire',
-    'Universitaire',
-    'Autre',
-  ];
+  List<String> _educationLevels = [];
+  List<String> _maritalStatuses = [];
 
   @override
   void initState() {
     super.initState();
     _loadRoles().then((_) => _loadUser());
+    _loadEducationLevels();
+    _loadMaritalStatuses();
   }
 
   Future<void> _loadRoles() async {
@@ -62,8 +59,42 @@ class _EditUserPageState extends State<EditUserPage> {
       });
     }
   }
+  Future<void> _loadEducationLevels() async {
+    try {
+      final doc = await _firestore.collection('settings').doc('education_levels').get();
+      final levels = List<String>.from(doc['name']);
+      setState(() {
+        _educationLevels = levels;
+      });
+    } catch (e) {
+      setState(() {
+        _errorMessage = "Erreur lors du chargement des niveaux d'études : $e";
+      });
+    }
+  }
+
+  Future<void> _loadMaritalStatuses() async {
+    try {
+      final doc = await _firestore.collection('settings').doc('marital_statuses').get();
+      final statuses = List<String>.from(doc['name']);
+
+      print("Statuts matrimoniaux chargés : $statuses"); // 👈 DEBUG ici
+      setState(() {
+        _maritalStatuses = statuses;
+      });
+    } catch (e) {
+      setState(() {
+        _errorMessage = "Erreur lors du chargement des statuts matrimoniaux : $e";
+      });
+    }
+  }
 
   Future<void> _loadUser() async {
+    /*await _firestore.collection('users').doc(widget.userId).update({
+      'maritalStatus': 'Célibataire'
+    });
+
+     */
     try {
       DocumentSnapshot doc = await _firestore.collection('users').doc(widget.userId).get();
       if (!doc.exists) {
@@ -79,16 +110,19 @@ class _EditUserPageState extends State<EditUserPage> {
       _fullNameController.text = data['fullName'] ?? '';
       _phoneController.text = data['phone'] ?? '';
       _startDateController.text = data['startDate'] ?? '';
-      _maritalStatusController.text = data['maritalStatus'] ?? '';
-      _identityDocUrl = data['identityDoc'];
-      _birthCertUrl = data['birthCert'];
+      //_maritalStatusController.text = data['maritalStatus'] ?? '';
+      _selectedMaritalStatuses = data['maritalStatus'];
+      _identityDocUrl = data['pieceIdentite'];
+      _birthCertUrl = data['acte_de_naissance'];
       _identityDocValidated = data['identityDocValidated'] ?? false;
       _birthCertValidated = data['birthCertValidated'] ?? false;
       _selectedRole = data['role'];
-      _selectedEducationLevel = data['educationLevel'] ?? _educationLevels[0];
+      _selectedEducationLevel = data['educationLevel'];
       _isRegisteredCnss = data['registeredCnss'] ?? false;
       _addressController.text = data['adresse'] ?? '';
       _emergencyContactController.text = data['emergencyContact'] ?? '';
+
+      //print("Statuts matrimoniaux chargés : $data['maritalStatus']");
 
       setState(() {
         _loading = false;
@@ -119,7 +153,7 @@ class _EditUserPageState extends State<EditUserPage> {
         'educationLevel': _selectedEducationLevel,
         'registeredCnss': _isRegisteredCnss,
         'startDate': _startDateController.text.trim(),
-        'maritalStatus': _maritalStatusController.text.trim(),
+        'maritalStatus': _selectedMaritalStatuses,
         'adresse': _addressController.text.trim(),
         'emergencyContact': _emergencyContactController.text.trim(),
       });
@@ -163,21 +197,27 @@ class _EditUserPageState extends State<EditUserPage> {
         '${docType}Validated': false,
       });
 
+      String nomDuDocument = docType == 'pieceIdentite'
+          ? 'la pièce d\'identité'
+          : docType == 'acte_de_naissance'
+          ? 'l\'acte de naissance'
+          : 'le document';
+
       await _firestore
           .collection('users')
           .doc(widget.userId)
           .collection('notifications')
           .add({
-        'message': "$docType a été rejeté. Veuillez le soumettre à nouveau.",
+        'title': "Document rejeté",
+        'message': "Votre $nomDuDocument a été rejeté. Veuillez le soumettre à nouveau.",
         'timestamp': Timestamp.now(),
         'seen': false,
         'type': 'rejet',
         'link': '/profile/${widget.userId}',
-        'title': "Rejet de document"
       });
 
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text("$docType rejeté et notification envoyée.")),
+        SnackBar(content: Text("Document rejeté et notification envoyée.")),
       );
 
       setState(() {
@@ -196,6 +236,33 @@ class _EditUserPageState extends State<EditUserPage> {
       );
     }
   }
+
+  Future<void> _validateDocument(String docType) async {
+    try {
+      await _firestore.collection('users').doc(widget.userId).update({
+        '${docType}Validated': true,
+      });
+
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text("$docType validé et notification envoyée.")),
+      );
+
+      setState(() {
+        if (docType == 'pieceIdentite') {
+          _identityDocValidated = true;
+        }
+        if (docType == 'acte_de_naissance') {
+          _birthCertValidated = true;
+        }
+      });
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text("Erreur lors de la validation : $e")),
+      );
+    }
+  }
+
 
   Widget _buildDocumentCard({
     required String docType,
@@ -228,13 +295,21 @@ class _EditUserPageState extends State<EditUserPage> {
                 }
               },
             ),
-            if (!validated)
+            if (!validated) ...[
+              IconButton(
+                icon: const Icon(Icons.check_circle, color: Colors.green),
+                onPressed: () => _validateDocument(docType),
+                tooltip: "Valider",
+              ),
               IconButton(
                 icon: const Icon(Icons.cancel, color: Colors.red),
                 onPressed: () => _rejectDocument(docType),
+                tooltip: "Rejeter",
               ),
+            ]
           ],
         ),
+
       ),
     );
   }
@@ -244,7 +319,7 @@ class _EditUserPageState extends State<EditUserPage> {
     _fullNameController.dispose();
     _phoneController.dispose();
     _startDateController.dispose();
-    _maritalStatusController.dispose();
+    //_maritalStatusController.dispose();
     _addressController.dispose();
     _emergencyContactController.dispose();
 
@@ -344,24 +419,43 @@ class _EditUserPageState extends State<EditUserPage> {
               const SizedBox(height: 8),
               TextFormField(
                 controller: _startDateController,
-                decoration: const InputDecoration(
-                  labelText: "Date d'embauche (yyyy-MM-dd)",
+                readOnly: true,
+                decoration: InputDecoration(
+                  labelText: "Date de début",
                   border: OutlineInputBorder(),
-                  contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 14),
                 ),
-                keyboardType: TextInputType.datetime,
-                validator: (val) {
-                  if (val == null || val.isEmpty) return "Date d'embauche requise";
-                  try {
-                    DateFormat('yyyy-MM-dd').parseStrict(val);
-                  } catch (e) {
-                    return "Format invalide (yyyy-MM-dd)";
+                onTap: () async {
+                  final pickedDate = await showDatePicker(
+                    context: context,
+                    initialDate: DateTime.now(),
+                    firstDate: DateTime(2000),
+                    lastDate: DateTime(2100),
+                  );
+                  if (pickedDate != null) {
+                    setState(() {
+                      _startDateController.text =
+                      "${pickedDate.day}/${pickedDate.month}/${pickedDate.year}";
+                    });
                   }
-                  return null;
                 },
               ),
               const SizedBox(height: 8),
-              TextFormField(
+              DropdownButtonFormField<String>(
+                value: _selectedMaritalStatuses,
+                items: _maritalStatuses
+                    .map((level) => DropdownMenuItem(
+                  value: level,
+                  child: Text(level),
+                ))
+                    .toList(),
+                onChanged: (val) => setState(() => _selectedMaritalStatuses = val),
+                decoration: const InputDecoration(
+                  labelText: "Situation matrimoniale",
+                  border: OutlineInputBorder(),
+                  contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 14),
+                ),
+              ),
+              /*TextFormField(
                 controller: _maritalStatusController,
                 decoration: const InputDecoration(
                   labelText: "Situation familiale",
@@ -369,6 +463,8 @@ class _EditUserPageState extends State<EditUserPage> {
                   contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 14),
                 ),
               ),
+
+               */
               const SizedBox(height: 8),
               TextFormField(
                 controller: _addressController,
@@ -395,14 +491,14 @@ class _EditUserPageState extends State<EditUserPage> {
               const SizedBox(height: 8),
 
               _buildDocumentCard(
-                docType: 'identityDoc',
+                docType: 'pieceIdentite',
                 title: "Pièce d'identité",
                 docUrl: _identityDocUrl,
                 validated: _identityDocValidated,
               ),
 
               _buildDocumentCard(
-                docType: 'birthCert',
+                docType: 'acte_de_naissance',
                 title: "Acte de naissance",
                 docUrl: _birthCertUrl,
                 validated: _birthCertValidated,

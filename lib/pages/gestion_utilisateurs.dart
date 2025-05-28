@@ -22,7 +22,10 @@ class _GestionUtilisateursState extends State<GestionUtilisateurs> {
     _fetchUsers();
   }
 
+
+
   void _fetchUsers() async {
+
     try {
       QuerySnapshot snapshot = await _firestore.collection('users').get();
       List<Map<String, dynamic>> usersList = snapshot.docs.map((doc) {

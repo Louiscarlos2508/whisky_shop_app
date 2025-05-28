@@ -51,7 +51,7 @@ class MyApp extends StatelessWidget {
         "/gestion_point_vente": (context) => GestionPointVente(),
         "/paiement": (context) =>GestionPaiements(),
         "/stats": (context) => Stats(),
-        "/emploi_du_temps_employe": (context) => EmploiDuTempsEmploye(),
+        //"/emploi_du_temps_employe": (context) => EmploiDuTempsEmploye(),
         "/liste_employe_gestion": (context) => ListeEmployesGestion(),
         "/admin_demande_service": (context) => AdminDemandeService(),
         "/generer_qr_presence": (context) => GenererQrCodePresence(),
@@ -65,14 +65,25 @@ class MyApp extends StatelessWidget {
       onGenerateRoute: (settings) {
         final uri = Uri.parse(settings.name ?? '');
 
+        // Profil dynamique : /profile/:id
         if (uri.pathSegments.length == 2 && uri.pathSegments[0] == 'profile') {
           final userId = uri.pathSegments[1];
           return MaterialPageRoute(
             builder: (_) => ProfilPage(userId: userId),
           );
         }
+
+        // Emploi du temps dynamique : /emploi_du_temps/:id
+        if (uri.pathSegments.length == 2 && uri.pathSegments[0] == 'emploi_du_temps_employe') {
+          final employeUid = uri.pathSegments[1];
+          return MaterialPageRoute(
+            builder: (_) => EmploiDuTempsEmploye(employeUid: employeUid),
+          );
+        }
+
         return null;
       },
+
     );
   }
 }

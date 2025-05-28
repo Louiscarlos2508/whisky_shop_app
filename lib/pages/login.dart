@@ -19,6 +19,38 @@ class _LoginPageState extends State<LoginPage> {
   bool _loading = false;
   String _errorMessage = '';
 
+
+  /*Future<void> createInitialSettings() async {
+    try {
+      await _firestore.collection('settings').doc('education_levels').set({
+        'name': [
+          'Aucun',
+          'Primaire',
+          'Secondaire',
+          'License',
+          'Master',
+          'Doctorat',
+        ]
+      });
+
+      await _firestore.collection('settings').doc('marital_statuses').set({
+        'name': [
+          'Célibataire',
+          'Marié(e)',
+          'Divorcé(e)',
+          'Veuf(ve)',
+        ]
+      });
+
+      print("Données ajoutées avec succès !");
+    } catch (e) {
+      print("Erreur lors de la création des données : $e");
+    }
+  }
+
+   */
+
+
   void _login() async {
     setState(() {
       _loading = true;
@@ -50,6 +82,8 @@ class _LoginPageState extends State<LoginPage> {
           // Vérifie les documents AVANT redirection
           await checkUserDocuments();
 
+          //createInitialSettings();
+
           // Redirection
           String role = userData['role'] ?? 'employé';
           Navigator.pushReplacementNamed(context, '/${role}_dashboard');
@@ -76,38 +110,51 @@ class _LoginPageState extends State<LoginPage> {
     final userDoc = await FirebaseFirestore.instance.collection('users').doc(user.uid).get();
     final data = userDoc.data();
 
-    // Ne pas notifier les admins
     final role = data?['role'] ?? '';
     if (role == 'admin') return;
 
     final docId = data?['pieceIdentite'];
     final acteNaissance = data?['acte_de_naissance'];
-    /*final notifSnapshot = await FirebaseFirestore.instance
+
+    final notifCollection = FirebaseFirestore.instance
         .collection('users')
         .doc(user.uid)
-        .collection('notifications')
+        .collection('notifications');
+
+    final notifSnapshot = await notifCollection
         .where('type', isEqualTo: 'profil_incomplet')
+        .limit(1)
         .get();
 
-     */
+    final hasMissingDocs = (docId == null || docId.isEmpty || acteNaissance == null || acteNaissance.isEmpty);
 
-    if (docId == null || docId == '' || acteNaissance == null || acteNaissance == '') {
-      // Envoie une notification locale ici
-      await FirebaseFirestore.instance
-          .collection('users')
-          .doc(user.uid)
-          .collection('notifications')
-          .add({
-        'title': 'Profil incomplet',
-        'message': 'Veuillez compléter votre profil en ajoutant vos documents justificatifs.',
-        'timestamp': Timestamp.now(),
-        'seen': false,
-        'type': 'profil_incomplet',
-        'link': '/profile/${user.uid}', // pour la redirection si besoin
-      });
-
+    if (hasMissingDocs) {
+      if (notifSnapshot.docs.isNotEmpty) {
+        // 🔁 Mise à jour notification existante
+        final docIdNotif = notifSnapshot.docs.first.id;
+        await notifCollection.doc(docIdNotif).update({
+          'seen': false,
+          'timestamp': Timestamp.now(),
+        });
+      } else {
+        // 🆕 Création nouvelle notification
+        await notifCollection.add({
+          'title': 'Profil incomplet',
+          'message': 'Veuillez compléter votre profil en ajoutant vos documents justificatifs.',
+          'timestamp': Timestamp.now(),
+          'seen': false,
+          'type': 'profil_incomplet',
+          'link': '/profile/${user.uid}',
+        });
+      }
+    } else {
+      // ✅ Tous les documents sont fournis → supprimer notification si elle existe
+      if (notifSnapshot.docs.isNotEmpty) {
+        await notifCollection.doc(notifSnapshot.docs.first.id).delete();
+      }
     }
   }
+
 
 
   @override

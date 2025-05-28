@@ -15,6 +15,10 @@ class _NotificationsEmployePageState extends State<NotificationsEmployePage> {
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
   bool loading = true;
   List<Map<String, dynamic>> notifications = [];
+  Set<String> clickedNotifications = {};
+  bool isNavigating = false;
+
+
 
   @override
   void initState() {
@@ -78,7 +82,7 @@ class _NotificationsEmployePageState extends State<NotificationsEmployePage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('Mes notifications')),
+      appBar: AppBar(title: const Text('Mes notifications'), centerTitle: true,),
       body: loading
           ? const Center(child: CircularProgressIndicator())
           : notifications.isEmpty
@@ -114,9 +118,22 @@ class _NotificationsEmployePageState extends State<NotificationsEmployePage> {
                 ],
               ),
               onTap: () {
+                final notifId = notif['id'];
+                if (isNavigating || clickedNotifications.contains(notifId)) return;
+
+                setState(() {
+                  isNavigating = true;
+                  clickedNotifications.add(notifId);
+                });
+
                 if (notif['link'] != null) {
-                  Navigator.pushNamed(context, notif['link']);
+                  Navigator.pushNamed(context, notif['link']).then((_) {
+                    setState(() {
+                      isNavigating = false;
+                    });
+                  });
                 }
+
               },
             ),
           );

@@ -46,7 +46,7 @@ class EmployeHome extends StatelessWidget {
                 Navigator.push(
                   context,
                   MaterialPageRoute(
-                      builder: (context) => const EmploiDuTempsEmploye()),
+                      builder: (context) => EmploiDuTempsEmploye(employeUid: FirebaseAuth.instance.currentUser!.uid,)),
                 );
               },
             ),

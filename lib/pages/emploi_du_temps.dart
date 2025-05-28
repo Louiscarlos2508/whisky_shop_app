@@ -78,17 +78,34 @@ class _EmploiDuTempsState extends State<EmploiDuTemps> {
   Future<void> notifierModificationEmploiDuTemps(String employeUid) async {
     final firestore = FirebaseFirestore.instance;
 
-    await firestore
+    final notifCollection = firestore
         .collection('users')
         .doc(employeUid)
-        .collection('notifications')
-        .add({
-      'message': 'Votre emploi du temps a été modifié.',
-      'timestamp': FieldValue.serverTimestamp(), // <-- CHAMP ATTENDU PAR LE UI
-      'seen': false, // <-- CHAMP ATTENDU PAR LE UI
-      'type': 'emploi_du_temps', // optionnel, utile pour filtrer si besoin
-    });
+        .collection('notifications');
+
+    final snapshot = await notifCollection
+        .where('type', isEqualTo: 'emploi_du_temps')
+        .limit(1)
+        .get();
+
+    if (snapshot.docs.isNotEmpty) {
+      await notifCollection.doc(snapshot.docs.first.id).update({
+        'timestamp': FieldValue.serverTimestamp(),
+        'seen': false,
+      });
+    } else {
+      // 🆕 Crée une nouvelle notification
+      await notifCollection.add({
+        'message': 'Votre emploi du temps a été modifié.',
+        'title': 'Emploi du temps',
+        'timestamp': FieldValue.serverTimestamp(),
+        'seen': false,
+        'type': 'emploi_du_temps',
+        'link': '/emploi_du_temps_employe/$employeUid',
+      });
+    }
   }
+
 
 
 

@@ -4,7 +4,9 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 
 class EmploiDuTempsEmploye extends StatefulWidget {
-  const EmploiDuTempsEmploye({super.key});
+  final String employeUid;
+
+  const EmploiDuTempsEmploye({super.key, required this.employeUid});
 
   @override
   State<EmploiDuTempsEmploye> createState() => _EmploiDuTempsEmployeState();
@@ -41,7 +43,7 @@ class _EmploiDuTempsEmployeState extends State<EmploiDuTempsEmploye> {
           .collection('emploidutemps')
           .doc(semaineId)
           .collection('employes')
-          .doc(user.uid)
+          .doc(widget.employeUid)
           .get();
 
       if (doc.exists && doc.data()?['jours'] != null) {

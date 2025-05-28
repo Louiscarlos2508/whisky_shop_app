@@ -50,6 +50,7 @@ class _NotificationsGerantPageState extends State<NotificationsGerantPage> {
     final usersSnapshot = await firestore.collection('users').get();
 
     for (var userDoc in usersSnapshot.docs) {
+      // Ajouté dans la méthode fetchNotifications
       final notesSnapshot = await userDoc.reference
           .collection('notes')
           .where('employeId', isEqualTo: employeId)
@@ -58,54 +59,48 @@ class _NotificationsGerantPageState extends State<NotificationsGerantPage> {
 
       for (var doc in notesSnapshot.docs) {
         final data = doc.data();
-
         final fullName = userDoc.data()['fullName'] ?? 'Employé';
 
         result.add({
           'type': 'note',
-          'note': (data['note'] ?? 0).toDouble(),
+          'note': (data['note'] is num) ? (data['note'] as num).toDouble() : 0.0,
           'commentaire': (data['commentaire'] ?? '').toString(),
           'fullName': fullName,
           'timestamp': (data['timestamp'] as Timestamp).toDate(),
+          'lu': data['lu'] ?? false,
         });
       }
+
     }
 
-    // 🔹 2. Notifications "Profil incomplet" (dans le compte du gérant)
-    final profilIncompletSnapshot = await firestore
+    final allNotificationsSnapshot = await firestore
         .collection('users')
         .doc(currentUser!.uid)
         .collection('notifications')
-        .where('title', isEqualTo: 'Profil incomplet')
         .orderBy('timestamp', descending: true)
         .get();
 
-    for (var doc in profilIncompletSnapshot.docs) {
+    for (var doc in allNotificationsSnapshot.docs) {
       final data = doc.data();
-      result.add({
-        'type': 'profil_incomplet',
-        'userId': data['userId'],
-        'message': data['message'],
-        'timestamp': (data['timestamp'] as Timestamp).toDate(),
-      });
-    }
+      final title = data['title'];
 
-    // 🔹 3. Notifications "Rejet document" (dans le compte du gérant)
-    final rejetSnapshot = await firestore
-        .collection('users')
-        .doc(currentUser!.uid)
-        .collection('notifications')
-        .where('title', isEqualTo: 'Rejet document')
-        .orderBy('timestamp', descending: true)
-        .get();
-
-    for (var doc in rejetSnapshot.docs) {
-      final data = doc.data();
-      result.add({
-        'type': 'rejet',
-        'message': data['message'],
-        'timestamp': (data['timestamp'] as Timestamp).toDate(),
-      });
+      if (title == 'Profil incomplet') {
+        result.add({
+          'type': 'profil_incomplet',
+          'userId': data['userId'],
+          'message': data['message'],
+          'timestamp': (data['timestamp'] as Timestamp).toDate(),
+          'seen': data['seen'] ?? false,
+        });
+      } else if (title == 'Document rejeté') {
+        result.add({
+          'type': 'rejet',
+          'userId': data['userId'],
+          'message': data['message'],
+          'timestamp': (data['timestamp'] as Timestamp).toDate(),
+          'seen': data['seen'] ?? false,
+        });
+      }
     }
 
     // 🔹 Trier toutes les notifications par date décroissante
@@ -151,49 +146,36 @@ class _NotificationsGerantPageState extends State<NotificationsGerantPage> {
               final timestamp = item['timestamp'] as DateTime;
               final formattedDate = DateFormat('dd MMM yyyy à HH:mm').format(timestamp);
 
-              if (item['type'] == 'profil_incomplet') {
-                return GestureDetector(
-                  onTap: () {
-                    Navigator.pushNamed(context, '/profile/${item['userId']}');
-                  },
-                  child: Container(
-                    padding: EdgeInsets.all(14),
-                    // design
-                    child: Row(
-                      children: [
-                        Icon(Icons.warning, color: Colors.orange),
-                        SizedBox(width: 12),
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text("Profil incomplet", style: TextStyle(fontWeight: FontWeight.bold)),
-                              Text(item['message']),
-                            ],
-                          ),
-                        )
-                      ],
-                    ),
-                  ),
-                );
-              }
-
               if (type == 'note') {
-                final note = item['note'] ?? 0;
+                final note = item['note'] ?? 0.0;
                 final fullName = item['fullName'] ?? 'Employé';
                 final commentaire = item['commentaire'] ?? '';
+                final isRead = item['lu'] == true;
+                if (!isRead)
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                    decoration: BoxDecoration(
+                      color: Colors.red,
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: const Text(
+                      "Nouveau",
+                      style: TextStyle(color: Colors.white, fontSize: 12),
+                    ),
+                  );
 
-                return Container(
+
+              return Container(
                   margin: const EdgeInsets.only(bottom: 16),
                   padding: const EdgeInsets.all(14),
                   decoration: BoxDecoration(
-                    color: Colors.grey[50],
+                    color: isRead ? Colors.grey[200] : Colors.white,
                     borderRadius: BorderRadius.circular(16),
-                    border: Border.all(color: Colors.grey.shade200),
+                    border: Border.all(color: Colors.grey.shade300),
                     boxShadow: [
                       BoxShadow(
-                        color: Colors.grey.withValues(alpha: 0.05),
-                        blurRadius: 8,
+                        color: Colors.black.withValues(alpha: 0.03),
+                        blurRadius: 6,
                         offset: const Offset(0, 4),
                       ),
                     ],
@@ -201,7 +183,11 @@ class _NotificationsGerantPageState extends State<NotificationsGerantPage> {
                   child: Row(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      const Icon(Icons.notifications, color: Colors.indigo, size: 28),
+                      Icon(
+                        Icons.notifications_active,
+                        color: isRead ? Colors.grey : Colors.indigo,
+                        size: 28,
+                      ),
                       const SizedBox(width: 12),
                       Expanded(
                         child: Column(
@@ -209,7 +195,11 @@ class _NotificationsGerantPageState extends State<NotificationsGerantPage> {
                           children: [
                             Text(
                               fullName,
-                              style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
+                              style: TextStyle(
+                                fontSize: 16,
+                                fontWeight: FontWeight.w600,
+                                color: isRead ? Colors.grey[700] : Colors.black,
+                              ),
                             ),
                             const SizedBox(height: 4),
                             Row(
@@ -221,12 +211,13 @@ class _NotificationsGerantPageState extends State<NotificationsGerantPage> {
                                 );
                               }),
                             ),
-                            const SizedBox(height: 6),
-                            if (commentaire.isNotEmpty)
+                            if (commentaire.isNotEmpty) ...[
+                              const SizedBox(height: 6),
                               Text(
                                 commentaire,
                                 style: TextStyle(fontSize: 14, color: Colors.grey[800]),
                               ),
+                            ],
                             const SizedBox(height: 6),
                             Text(
                               formattedDate,
@@ -236,62 +227,135 @@ class _NotificationsGerantPageState extends State<NotificationsGerantPage> {
                         ),
                       ),
                     ],
+                  ),
+                );
+              }
+
+              if (type == 'profil_incomplet') {
+                final isRead = item['seen'] == true;
+
+                return GestureDetector(
+                  onTap: isRead ? null : () async {
+                    final firestore = FirebaseFirestore.instance;
+                    final snapshot = await firestore
+                        .collection('users')
+                        .doc(currentUser!.uid)
+                        .collection('notifications')
+                        .where('userId', isEqualTo: item['userId'])
+                        .where('title', isEqualTo: 'Profil incomplet')
+                        .get();
+
+                    for (var doc in snapshot.docs) {
+                      await doc.reference.update({'seen': true});
+                    }
+
+                    // 🔸 Redirige
+                    if (context.mounted) {
+                      Navigator.pushNamed(context, '/profile/${item['userId']}');
+                      setState(() {}); // Refresh pour refléter le changement
+                    }
+                  },
+                  child: Container(
+                    margin: const EdgeInsets.only(bottom: 16),
+                    padding: const EdgeInsets.all(14),
+                    decoration: BoxDecoration(
+                      color: isRead ? Colors.grey[200] : Colors.orange[50],
+                      borderRadius: BorderRadius.circular(16),
+                      border: Border.all(color: isRead ? Colors.grey : Colors.orange.shade200),
+                    ),
+                    child: Row(
+                      children: [
+                        Icon(Icons.warning,
+                            color: isRead ? Colors.grey : Colors.orange),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text("Profil incomplet",
+                                  style: TextStyle(
+                                      fontWeight: FontWeight.bold,
+                                      color: isRead ? Colors.grey : Colors.black)),
+                              Text(item['message']),
+                              const SizedBox(height: 4),
+                              Text(
+                                formattedDate,
+                                style: TextStyle(fontSize: 13, color: Colors.grey[600]),
+                              ),
+                            ],
+                          ),
+                        )
+                      ],
+                    ),
                   ),
                 );
               }
 
               if (type == 'rejet') {
-                final message = item['message'] ?? '';
+                final isRead = item['seen'] == true;
 
-                return Container(
-                  margin: const EdgeInsets.only(bottom: 16),
-                  padding: const EdgeInsets.all(14),
-                  decoration: BoxDecoration(
-                    color: Colors.red[50],
-                    borderRadius: BorderRadius.circular(16),
-                    border: Border.all(color: Colors.red.shade200),
-                    boxShadow: [
-                      BoxShadow(
-                        color: Colors.grey.withValues(alpha: 0.05),
-                        blurRadius: 8,
-                        offset: const Offset(0, 4),
-                      ),
-                    ],
-                  ),
-                  child: Row(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      const Icon(Icons.warning_amber, color: Colors.red, size: 28),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            const Text(
-                              "Document rejeté",
-                              style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600, color: Colors.red),
-                            ),
-                            const SizedBox(height: 4),
-                            Text(
-                              message,
-                              style: TextStyle(fontSize: 14, color: Colors.grey[800]),
-                            ),
-                            const SizedBox(height: 6),
-                            Text(
-                              formattedDate,
-                              style: TextStyle(fontSize: 13, color: Colors.grey[600]),
-                            ),
-                          ],
+                return GestureDetector(
+                  onTap: isRead ? null : () async {
+                    final firestore = FirebaseFirestore.instance;
+                    final snapshot = await firestore
+                        .collection('users')
+                        .doc(currentUser!.uid)
+                        .collection('notifications')
+                        .where('userId', isEqualTo: item['userId'])
+                        .where('title', isEqualTo: 'Document rejeté')
+                        .get();
+
+                    for (var doc in snapshot.docs) {
+                      await doc.reference.update({'seen': true});
+                    }
+
+                    // 🔸 Redirige
+                    if (context.mounted) {
+                      Navigator.pushNamed(context, '/profile/${item['userId']}');
+                      setState(() {}); // Refresh pour refléter le changement
+                    }
+                  },
+                  child: Container(
+                    margin: const EdgeInsets.only(bottom: 16),
+                    padding: const EdgeInsets.all(14),
+                    decoration: BoxDecoration(
+                      color: isRead ? Colors.grey[200] : Colors.red[50],
+                      borderRadius: BorderRadius.circular(16),
+                      border: Border.all(color: isRead ? Colors.grey : Colors.red.shade200),
+                    ),
+                    child: Row(
+                      children: [
+                        Icon(Icons.warning_amber,
+                            color: isRead ? Colors.grey : Colors.red, size: 28),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text("Document rejeté",
+                                  style: TextStyle(
+                                      fontWeight: FontWeight.bold,
+                                      color: isRead ? Colors.grey : Colors.red)),
+                              Text(item['message']),
+                              const SizedBox(height: 6),
+                              Text(
+                                formattedDate,
+                                style: TextStyle(fontSize: 13, color: Colors.grey[600]),
+                              ),
+                            ],
+
+                          ),
                         ),
-                      ),
-                    ],
+                      ],
+                    ),
                   ),
                 );
               }
-              return SizedBox.shrink();
 
+              return const SizedBox.shrink();
             },
           );
+
         },
       ),
     );

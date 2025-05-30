@@ -1,9 +1,12 @@
 import 'dart:io';
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:firebase_storage/firebase_storage.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
-import 'package:url_launcher/url_launcher.dart';
+import 'package:flutter_image_compress/flutter_image_compress.dart';
+import 'package:image_picker/image_picker.dart';
+import 'dart:convert';
+import 'package:open_file/open_file.dart';
+import 'package:archive/archive.dart';
 
 class ProfilPage extends StatefulWidget {
   final String userId;
@@ -44,7 +47,90 @@ class _ProfilePageState extends State<ProfilPage> {
   List<String> _educationLevels = [];
 
   List<String> _maritalStatuses = [];
-  String _errorMessage = '';
+  String? _errorMessage;
+  String? _profilePhotoBase64;
+  final int _maxImageSizeBytes = 900 * 1024; // 900 Ko max (par sécurité)
+
+
+  Future<void> _pickProfilePhoto() async {
+    final picker = ImagePicker();
+    final picked = await picker.pickImage(source: ImageSource.gallery);
+
+    if (picked != null) {
+      // Compression
+      final compressed = await FlutterImageCompress.compressWithFile(
+        picked.path,
+        quality: 60,
+        format: CompressFormat.jpeg,
+      );
+
+      if (compressed != null) {
+        if (compressed.length > _maxImageSizeBytes) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text("L’image est trop lourde. Choisissez une image plus légère.")),
+          );
+          return;
+        }
+
+        final base64Image = base64Encode(compressed);
+
+        // Sauvegarde dans Firestore
+        await _firestore.collection('users').doc(widget.userId).update({
+          'profilePhoto': base64Image,
+        });
+
+        setState(() {
+          _profilePhotoBase64 = base64Image;
+        });
+
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text("Photo de profil mise à jour")),
+        );
+      }
+    }
+  }
+  Widget _buildProfilePhoto() {
+    final imageProvider = _profilePhotoBase64 != null
+        ? MemoryImage(base64Decode(_profilePhotoBase64!))
+        : AssetImage('assets/avatar.jpeg') as ImageProvider;
+
+    return Center(
+      child: Stack(
+        children: [
+          GestureDetector(
+            onTap: () {
+              if (_profilePhotoBase64 != null) {
+                showDialog(
+                  context: context,
+                  builder: (_) => Dialog(
+                    child: Image.memory(base64Decode(_profilePhotoBase64!)),
+                  ),
+                );
+              }
+            },
+            child: CircleAvatar(
+              radius: 60,
+              backgroundImage: imageProvider,
+              backgroundColor: Colors.grey[200],
+            ),
+          ),
+          Positioned(
+            bottom: 0,
+            right: 4,
+            child: GestureDetector(
+              onTap: _pickProfilePhoto,
+              child: CircleAvatar(
+                radius: 18,
+                backgroundColor: Colors.blue,
+                child: Icon(Icons.edit, size: 18, color: Colors.white),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
 
 
   Future<void> _loadEducationLevels() async {
@@ -115,6 +201,8 @@ class _ProfilePageState extends State<ProfilPage> {
         //_isMaritalStatusEditable = _maritalStatusController.text.isEmpty;
         _isAddressEditable = _addressController.text.isEmpty;
         _isEmergencyContactEditable = _emergencyContactController.text.isEmpty;
+        _profilePhotoBase64 = data?['profilePhoto'];
+
       });
     } catch (e) {
       print("Erreur chargement données : $e");
@@ -149,55 +237,89 @@ class _ProfilePageState extends State<ProfilPage> {
 
 
   Future<void> _pickDocument(String type) async {
-    final result = await FilePicker.platform.pickFiles();
+    final result = await FilePicker.platform.pickFiles(
+      type: FileType.custom,
+      allowedExtensions: ['pdf'],
+    );
+
     if (result != null && result.files.single.path != null) {
+      final file = File(result.files.single.path!);
+      final fileSize = await file.length();
+
+      if (fileSize > _maxImageSizeBytes) {
+        // Affiche un message d'erreur si fichier > 1 Mo
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+          content: Text('Le fichier ne doit pas dépasser 1 Mo.'),
+          backgroundColor: Colors.red,
+        ));
+        return; // Stoppe la fonction
+      }
+
       setState(() {
-        _selectedFile = File(result.files.single.path!);
+        _selectedFile = file;
         _selectedFileType = type;
       });
     }
   }
 
+
+
   Future<void> _confirmUpload() async {
     if (_selectedFile == null || _selectedFileType == null) return;
 
-    final extension = _selectedFile!.path.split('.').last;
-
-    final ref = FirebaseStorage.instance
-        .ref()
-        .child('documents/${widget.userId}/$_selectedFileType.$extension');
-
     try {
-      await ref.putFile(_selectedFile!);
+      final bytes = await _selectedFile!.readAsBytes();
 
-      final url = await ref.getDownloadURL();
+      // 1. Création d’un fichier ZIP contenant le fichier sélectionné
+      final archive = Archive()
+        ..addFile(ArchiveFile(
+          _selectedFile!.path.split('/').last,
+          bytes.length,
+          bytes,
+        ));
+      final zippedBytes = ZipEncoder().encode(archive)!;
 
+      // 2. Encodage en base64
+      final base64Zip = base64Encode(zippedBytes);
+
+      // 3. Vérifie la limite Firestore
+      if (base64Zip.length > 1048487) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+          content: Text('Fichier trop lourd même compressé. Choisissez un fichier plus léger.'),
+          backgroundColor: Colors.red,
+        ));
+        return;
+      }
+
+      // 4. Envoi dans Firestore
       await _firestore.collection('users').doc(widget.userId).update({
-        _selectedFileType!: url,
+        _selectedFileType!: base64Zip,
       });
 
       setState(() {
         if (_selectedFileType == 'acte_de_naissance') {
-          _acteDeNaissanceUrl = url;
-        } else {
-          _pieceIdentiteUrl = url;
+          _acteDeNaissanceUrl = 'UPLOADED';
+        } else if (_selectedFileType == 'pieceIdentite') {
+          _pieceIdentiteUrl = 'UPLOADED';
         }
         _selectedFile = null;
         _selectedFileType = null;
       });
 
       ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-        content: Text('Document téléversé avec succès.'),
+        content: Text('Document compressé et stocké avec succès.'),
         backgroundColor: Colors.green,
       ));
     } catch (e) {
-      print("Erreur upload : $e");
+      print("Erreur stockage : $e");
       ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-        content: Text('Erreur lors du téléversement.'),
+        content: Text('Erreur lors du stockage du document.'),
         backgroundColor: Colors.red,
       ));
     }
   }
+
+
 
   Widget _buildTextField(String label, TextEditingController controller, {bool enabled = true}) {
     return Padding(
@@ -218,7 +340,7 @@ class _ProfilePageState extends State<ProfilPage> {
     final isSelected = _selectedFile != null && _selectedFileType == type;
 
     // LOGIQUE STRICTE APPLIQUÉE
-    if (url != null && url.isNotEmpty) {
+    if (url != null && url.isNotEmpty && url != 'UPLOADED') {
       return Card(
         margin: const EdgeInsets.symmetric(vertical: 8),
         child: Padding(
@@ -231,8 +353,13 @@ class _ProfilePageState extends State<ProfilPage> {
               TextButton.icon(
                 icon: Icon(Icons.visibility),
                 label: Text("Voir le document"),
-                onPressed: () => launchUrl(Uri.parse(url)),
+                onPressed: () async {
+                  if (url.isNotEmpty) {
+                    await OpenFile.open(_selectedFile!.path);
+                  }
+                },
               ),
+
             ],
           ),
         ),
@@ -251,7 +378,7 @@ class _ProfilePageState extends State<ProfilPage> {
             if (!isSelected)
               ElevatedButton(
                 onPressed: () => _pickDocument(type),
-                child: Text("Choisir un fichier"),
+                child: Text("Choisir un fichier", style: TextStyle(color: Colors.blue),),
               ),
             if (isSelected) ...[
               Text("Fichier sélectionné : ${_selectedFile!.path.split('/').last}"),
@@ -260,7 +387,7 @@ class _ProfilePageState extends State<ProfilPage> {
                   ElevatedButton.icon(
                     onPressed: _confirmUpload,
                     icon: Icon(Icons.upload),
-                    label: Text("Confirmer"),
+                    label: Text("Confirmer", style: TextStyle(color: Colors.blue),),
                   ),
                   const SizedBox(width: 10),
                   TextButton(
@@ -268,10 +395,18 @@ class _ProfilePageState extends State<ProfilPage> {
                       _selectedFile = null;
                       _selectedFileType = null;
                     }),
-                    child: Text("Annuler"),
+                    child: Text("Annuler", style: TextStyle(color: Colors.blue),),
                   ),
                 ],
-              )
+              ),
+              const SizedBox(height: 10),
+              TextButton.icon(
+                icon: Icon(Icons.visibility),
+                label: Text("Prévisualiser", style: TextStyle(color: Colors.blue),),
+                onPressed: () async {
+                  await OpenFile.open(_selectedFile!.path);
+                },
+              ),
             ]
           ],
         ),
@@ -312,15 +447,24 @@ class _ProfilePageState extends State<ProfilPage> {
     }
   }
 
+  bool _documentsCompletementValides() {
+    return (_selectedEducationLevel != null && _startDateController.text.isNotEmpty &&
+        _selectedMaritalStatuses != null && _addressController.text.isNotEmpty &&
+        _emergencyContactController.text.isNotEmpty);
+  }
+
+
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: Text("Profil de l'utilisateur"), centerTitle: true,),
+      appBar: AppBar(title: Text("Mon Profil"), centerTitle: true,),
       body: SingleChildScrollView(
         padding: EdgeInsets.all(16),
         child: Column(
           children: [
+            _buildProfilePhoto(),
+            const SizedBox(height: 16),
             _buildTextField("Nom complet", _fullNameController, enabled: false),
             _buildTextField("Téléphone", _phoneController, enabled: false),
             _buildTextField("Rôle", _roleController, enabled: false),
@@ -381,19 +525,24 @@ class _ProfilePageState extends State<ProfilPage> {
             _buildTextField("Contact d'urgence", _emergencyContactController, enabled: _isEmergencyContactEditable),
 
             const SizedBox(height: 16),
-            _buildUploadSection("Pièce d'identité", "pieceIdentite", _pieceIdentiteUrl),
-            _buildUploadSection("Acte de naissance", "acte_de_naissance", _acteDeNaissanceUrl),
+            if (_pieceIdentiteUrl == null || _pieceIdentiteUrl == 'UPLOADED')
+              _buildUploadSection("Pièce d'identité", "pieceIdentite", _pieceIdentiteUrl),
+
+            if (_acteDeNaissanceUrl == null || _acteDeNaissanceUrl == 'UPLOADED')
+              _buildUploadSection("Acte de naissance", "acte_de_naissance", _acteDeNaissanceUrl),
+
 
             const SizedBox(height: 20),
-            ElevatedButton.icon(
-              onPressed: _saveUserProfile,
-              icon: Icon(Icons.save),
-              label: Text("Enregistrer"),
-              style: ElevatedButton.styleFrom(
-                padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
-                backgroundColor: Colors.blue,
+            if (!_documentsCompletementValides())
+              ElevatedButton.icon(
+                onPressed: _saveUserProfile,
+                icon: Icon(Icons.save, color: Colors.white),
+                label: Text("Enregistrer", style: TextStyle(color: Colors.white)),
+                style: ElevatedButton.styleFrom(
+                  padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+                  backgroundColor: Colors.green,
+                ),
               ),
-            ),
           ],
         ),
       ),

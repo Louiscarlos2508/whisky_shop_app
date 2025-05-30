@@ -373,6 +373,20 @@
             </list>
           </value>
         </entry>
+        <entry key="flutter_cache_manager">
+          <value>
+            <list>
+              <option value="$PROJECT_DIR$/../.pub-cache/hosted/pub.dev/flutter_cache_manager-3.4.1/lib" />
+            </list>
+          </value>
+        </entry>
+        <entry key="flutter_cached_pdfview">
+          <value>
+            <list>
+              <option value="$PROJECT_DIR$/../.pub-cache/hosted/pub.dev/flutter_cached_pdfview-0.4.3/lib" />
+            </list>
+          </value>
+        </entry>
         <entry key="flutter_image_compress">
           <value>
             <list>
@@ -419,6 +433,13 @@
           <value>
             <list>
               <option value="$PROJECT_DIR$/../.pub-cache/hosted/pub.dev/flutter_launcher_icons-0.11.0/lib" />
+            </list>
+          </value>
+        </entry>
+        <entry key="flutter_pdfview">
+          <value>
+            <list>
+              <option value="$PROJECT_DIR$/../.pub-cache/hosted/pub.dev/flutter_pdfview-1.4.0+1/lib" />
             </list>
           </value>
         </entry>
@@ -530,7 +551,7 @@
         <entry key="http">
           <value>
             <list>
-              <option value="$PROJECT_DIR$/../.pub-cache/hosted/pub.dev/http-0.13.6/lib" />
+              <option value="$PROJECT_DIR$/../.pub-cache/hosted/pub.dev/http-1.4.0/lib" />
             </list>
           </value>
         </entry>
@@ -727,6 +748,62 @@
           <value>
             <list>
               <option value="$PROJECT_DIR$/../.pub-cache/hosted/pub.dev/mobile_scanner-3.5.7/lib" />
+            </list>
+          </value>
+        </entry>
+        <entry key="open_file">
+          <value>
+            <list>
+              <option value="$PROJECT_DIR$/../.pub-cache/hosted/pub.dev/open_file-3.5.10/lib" />
+            </list>
+          </value>
+        </entry>
+        <entry key="open_file_android">
+          <value>
+            <list>
+              <option value="$PROJECT_DIR$/../.pub-cache/hosted/pub.dev/open_file_android-1.0.6/lib" />
+            </list>
+          </value>
+        </entry>
+        <entry key="open_file_ios">
+          <value>
+            <list>
+              <option value="$PROJECT_DIR$/../.pub-cache/hosted/pub.dev/open_file_ios-1.0.3/lib" />
+            </list>
+          </value>
+        </entry>
+        <entry key="open_file_linux">
+          <value>
+            <list>
+              <option value="$PROJECT_DIR$/../.pub-cache/hosted/pub.dev/open_file_linux-0.0.5/lib" />
+            </list>
+          </value>
+        </entry>
+        <entry key="open_file_mac">
+          <value>
+            <list>
+              <option value="$PROJECT_DIR$/../.pub-cache/hosted/pub.dev/open_file_mac-1.0.3/lib" />
+            </list>
+          </value>
+        </entry>
+        <entry key="open_file_platform_interface">
+          <value>
+            <list>
+              <option value="$PROJECT_DIR$/../.pub-cache/hosted/pub.dev/open_file_platform_interface-1.0.3/lib" />
+            </list>
+          </value>
+        </entry>
+        <entry key="open_file_web">
+          <value>
+            <list>
+              <option value="$PROJECT_DIR$/../.pub-cache/hosted/pub.dev/open_file_web-0.0.4/lib" />
+            </list>
+          </value>
+        </entry>
+        <entry key="open_file_windows">
+          <value>
+            <list>
+              <option value="$PROJECT_DIR$/../.pub-cache/hosted/pub.dev/open_file_windows-0.0.3/lib" />
             </list>
           </value>
         </entry>
@@ -958,6 +1035,41 @@
           <value>
             <list>
               <option value="$PROJECT_DIR$/../.pub-cache/hosted/pub.dev/sprintf-7.0.0/lib" />
+            </list>
+          </value>
+        </entry>
+        <entry key="sqflite">
+          <value>
+            <list>
+              <option value="$PROJECT_DIR$/../.pub-cache/hosted/pub.dev/sqflite-2.4.2/lib" />
+            </list>
+          </value>
+        </entry>
+        <entry key="sqflite_android">
+          <value>
+            <list>
+              <option value="$PROJECT_DIR$/../.pub-cache/hosted/pub.dev/sqflite_android-2.4.1/lib" />
+            </list>
+          </value>
+        </entry>
+        <entry key="sqflite_common">
+          <value>
+            <list>
+              <option value="$PROJECT_DIR$/../.pub-cache/hosted/pub.dev/sqflite_common-2.5.5/lib" />
+            </list>
+          </value>
+        </entry>
+        <entry key="sqflite_darwin">
+          <value>
+            <list>
+              <option value="$PROJECT_DIR$/../.pub-cache/hosted/pub.dev/sqflite_darwin-2.4.2/lib" />
+            </list>
+          </value>
+        </entry>
+        <entry key="sqflite_platform_interface">
+          <value>
+            <list>
+              <option value="$PROJECT_DIR$/../.pub-cache/hosted/pub.dev/sqflite_platform_interface-2.4.0/lib" />
             </list>
           </value>
         </entry>
@@ -1212,6 +1324,8 @@
       <root url="file://$PROJECT_DIR$/../.pub-cache/hosted/pub.dev/firebase_storage_platform_interface-5.2.4/lib" />
       <root url="file://$PROJECT_DIR$/../.pub-cache/hosted/pub.dev/firebase_storage_web-3.10.11/lib" />
       <root url="file://$PROJECT_DIR$/../.pub-cache/hosted/pub.dev/fixnum-1.1.1/lib" />
+      <root url="file://$PROJECT_DIR$/../.pub-cache/hosted/pub.dev/flutter_cache_manager-3.4.1/lib" />
+      <root url="file://$PROJECT_DIR$/../.pub-cache/hosted/pub.dev/flutter_cached_pdfview-0.4.3/lib" />
       <root url="file://$PROJECT_DIR$/../.pub-cache/hosted/pub.dev/flutter_image_compress-2.4.0/lib" />
       <root url="file://$PROJECT_DIR$/../.pub-cache/hosted/pub.dev/flutter_image_compress_common-1.0.6/lib" />
       <root url="file://$PROJECT_DIR$/../.pub-cache/hosted/pub.dev/flutter_image_compress_macos-1.0.3/lib" />
@@ -1219,6 +1333,7 @@
       <root url="file://$PROJECT_DIR$/../.pub-cache/hosted/pub.dev/flutter_image_compress_platform_interface-1.0.5/lib" />
       <root url="file://$PROJECT_DIR$/../.pub-cache/hosted/pub.dev/flutter_image_compress_web-0.1.5/lib" />
       <root url="file://$PROJECT_DIR$/../.pub-cache/hosted/pub.dev/flutter_launcher_icons-0.11.0/lib" />
+      <root url="file://$PROJECT_DIR$/../.pub-cache/hosted/pub.dev/flutter_pdfview-1.4.0+1/lib" />
       <root url="file://$PROJECT_DIR$/../.pub-cache/hosted/pub.dev/flutter_plugin_android_lifecycle-2.0.27/lib" />
       <root url="file://$PROJECT_DIR$/../.pub-cache/hosted/pub.dev/flutter_rating_bar-4.0.1/lib" />
       <root url="file://$PROJECT_DIR$/../.pub-cache/hosted/pub.dev/flutter_sound-9.28.0/lib" />
@@ -1232,7 +1347,7 @@
       <root url="file://$PROJECT_DIR$/../.pub-cache/hosted/pub.dev/google_sign_in_platform_interface-2.5.0/lib" />
       <root url="file://$PROJECT_DIR$/../.pub-cache/hosted/pub.dev/google_sign_in_web-0.12.4+4/lib" />
       <root url="file://$PROJECT_DIR$/../.pub-cache/hosted/pub.dev/html-0.15.6/lib" />
-      <root url="file://$PROJECT_DIR$/../.pub-cache/hosted/pub.dev/http-0.13.6/lib" />
+      <root url="file://$PROJECT_DIR$/../.pub-cache/hosted/pub.dev/http-1.4.0/lib" />
       <root url="file://$PROJECT_DIR$/../.pub-cache/hosted/pub.dev/http_parser-4.1.2/lib" />
       <root url="file://$PROJECT_DIR$/../.pub-cache/hosted/pub.dev/image-3.3.0/lib" />
       <root url="file://$PROJECT_DIR$/../.pub-cache/hosted/pub.dev/image_picker-1.1.2/lib" />
@@ -1261,6 +1376,14 @@
       <root url="file://$PROJECT_DIR$/../.pub-cache/hosted/pub.dev/meta-1.16.0/lib" />
       <root url="file://$PROJECT_DIR$/../.pub-cache/hosted/pub.dev/mime-1.0.6/lib" />
       <root url="file://$PROJECT_DIR$/../.pub-cache/hosted/pub.dev/mobile_scanner-3.5.7/lib" />
+      <root url="file://$PROJECT_DIR$/../.pub-cache/hosted/pub.dev/open_file-3.5.10/lib" />
+      <root url="file://$PROJECT_DIR$/../.pub-cache/hosted/pub.dev/open_file_android-1.0.6/lib" />
+      <root url="file://$PROJECT_DIR$/../.pub-cache/hosted/pub.dev/open_file_ios-1.0.3/lib" />
+      <root url="file://$PROJECT_DIR$/../.pub-cache/hosted/pub.dev/open_file_linux-0.0.5/lib" />
+      <root url="file://$PROJECT_DIR$/../.pub-cache/hosted/pub.dev/open_file_mac-1.0.3/lib" />
+      <root url="file://$PROJECT_DIR$/../.pub-cache/hosted/pub.dev/open_file_platform_interface-1.0.3/lib" />
+      <root url="file://$PROJECT_DIR$/../.pub-cache/hosted/pub.dev/open_file_web-0.0.4/lib" />
+      <root url="file://$PROJECT_DIR$/../.pub-cache/hosted/pub.dev/open_file_windows-0.0.3/lib" />
       <root url="file://$PROJECT_DIR$/../.pub-cache/hosted/pub.dev/path-1.9.1/lib" />
       <root url="file://$PROJECT_DIR$/../.pub-cache/hosted/pub.dev/path_parsing-1.1.0/lib" />
       <root url="file://$PROJECT_DIR$/../.pub-cache/hosted/pub.dev/path_provider-2.1.5/lib" />
@@ -1293,6 +1416,11 @@
       <root url="file://$PROJECT_DIR$/../.pub-cache/hosted/pub.dev/simple_gesture_detector-0.2.1/lib" />
       <root url="file://$PROJECT_DIR$/../.pub-cache/hosted/pub.dev/source_span-1.10.1/lib" />
       <root url="file://$PROJECT_DIR$/../.pub-cache/hosted/pub.dev/sprintf-7.0.0/lib" />
+      <root url="file://$PROJECT_DIR$/../.pub-cache/hosted/pub.dev/sqflite-2.4.2/lib" />
+      <root url="file://$PROJECT_DIR$/../.pub-cache/hosted/pub.dev/sqflite_android-2.4.1/lib" />
+      <root url="file://$PROJECT_DIR$/../.pub-cache/hosted/pub.dev/sqflite_common-2.5.5/lib" />
+      <root url="file://$PROJECT_DIR$/../.pub-cache/hosted/pub.dev/sqflite_darwin-2.4.2/lib" />
+      <root url="file://$PROJECT_DIR$/../.pub-cache/hosted/pub.dev/sqflite_platform_interface-2.4.0/lib" />
       <root url="file://$PROJECT_DIR$/../.pub-cache/hosted/pub.dev/stack_trace-1.12.1/lib" />
       <root url="file://$PROJECT_DIR$/../.pub-cache/hosted/pub.dev/stream_channel-2.1.4/lib" />
       <root url="file://$PROJECT_DIR$/../.pub-cache/hosted/pub.dev/stream_transform-2.1.1/lib" />

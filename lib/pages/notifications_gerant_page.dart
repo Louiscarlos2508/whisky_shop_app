@@ -91,6 +91,7 @@ class _NotificationsGerantPageState extends State<NotificationsGerantPage> {
           'message': data['message'],
           'timestamp': (data['timestamp'] as Timestamp).toDate(),
           'seen': data['seen'] ?? false,
+          'link': data['link'],
         });
       } else if (title == 'Document rejeté') {
         result.add({
@@ -99,6 +100,7 @@ class _NotificationsGerantPageState extends State<NotificationsGerantPage> {
           'message': data['message'],
           'timestamp': (data['timestamp'] as Timestamp).toDate(),
           'seen': data['seen'] ?? false,
+          'link': data['link'],
         });
       }
     }
@@ -248,11 +250,9 @@ class _NotificationsGerantPageState extends State<NotificationsGerantPage> {
                     for (var doc in snapshot.docs) {
                       await doc.reference.update({'seen': true});
                     }
-
-                    // 🔸 Redirige
-                    if (context.mounted) {
-                      Navigator.pushNamed(context, '/profile/${item['userId']}');
-                      setState(() {}); // Refresh pour refléter le changement
+                    if (item['link'] != null) {
+                      Navigator.pushNamed(context, item['link']).then((_) {
+                      });
                     }
                   },
                   child: Container(
@@ -309,10 +309,9 @@ class _NotificationsGerantPageState extends State<NotificationsGerantPage> {
                       await doc.reference.update({'seen': true});
                     }
 
-                    // 🔸 Redirige
-                    if (context.mounted) {
-                      Navigator.pushNamed(context, '/profile/${item['userId']}');
-                      setState(() {}); // Refresh pour refléter le changement
+                    if (item['link'] != null) {
+                      Navigator.pushNamed(context, item['link']).then((_) {
+                      });
                     }
                   },
                   child: Container(

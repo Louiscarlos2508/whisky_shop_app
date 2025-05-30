@@ -1,6 +1,12 @@
+import 'dart:convert';
+import 'dart:io';
+import 'package:archive/archive.dart';
+import 'package:open_file/open_file.dart';
+import 'package:path_provider/path_provider.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
-import 'package:url_launcher/url_launcher.dart';
+
+
 
 class EditUserPage extends StatefulWidget {
   final String userId;
@@ -44,6 +50,7 @@ class _EditUserPageState extends State<EditUserPage> {
     _loadRoles().then((_) => _loadUser());
     _loadEducationLevels();
     _loadMaritalStatuses();
+    _loadUserValidationStatus();
   }
 
   Future<void> _loadRoles() async {
@@ -114,8 +121,8 @@ class _EditUserPageState extends State<EditUserPage> {
       _selectedMaritalStatuses = data['maritalStatus'];
       _identityDocUrl = data['pieceIdentite'];
       _birthCertUrl = data['acte_de_naissance'];
-      _identityDocValidated = data['identityDocValidated'] ?? false;
-      _birthCertValidated = data['birthCertValidated'] ?? false;
+      _identityDocValidated = data['pieceIdentiteValidated'] ?? false;
+      _birthCertValidated = data['acte_de_naissanceValidated'] ?? false;
       _selectedRole = data['role'];
       _selectedEducationLevel = data['educationLevel'];
       _isRegisteredCnss = data['registeredCnss'] ?? false;
@@ -237,6 +244,26 @@ class _EditUserPageState extends State<EditUserPage> {
     }
   }
 
+  Future<void> _loadUserValidationStatus() async {
+    print("Chargement des statuts de validation...");
+    try {
+      final doc = await _firestore.collection('users').doc(widget.userId).get();
+      final data = doc.data();
+      print("Données récupérées: $data");
+
+      if (data != null) {
+        setState(() {
+          _identityDocValidated = data['pieceIdentiteValidated'] == true;
+          _birthCertValidated = data['acte_de_naissanceValidated'] == true;
+        });
+        print("État validé: _identityDocValidated=$_identityDocValidated, _birthCertValidated=$_birthCertValidated");
+      }
+    } catch (e) {
+      print("Erreur chargement des statuts de validation : $e");
+    }
+  }
+
+
   Future<void> _validateDocument(String docType) async {
     try {
       await _firestore.collection('users').doc(widget.userId).update({
@@ -245,7 +272,7 @@ class _EditUserPageState extends State<EditUserPage> {
 
 
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text("$docType validé et notification envoyée.")),
+        SnackBar(content: Text("$docType validé.")),
       );
 
       setState(() {
@@ -263,14 +290,46 @@ class _EditUserPageState extends State<EditUserPage> {
     }
   }
 
+  Future<void> _openBase64Pdf(String base64String) async {
+    try {
+      // 1. Décodage base64 → bytes ZIP
+      final zippedBytes = base64Decode(base64String);
+
+      // 2. Décompression ZIP → Archive
+      final archive = ZipDecoder().decodeBytes(zippedBytes);
+
+      if (archive.isEmpty) {
+        throw 'Le fichier ZIP est vide';
+      }
+
+      // 3. Récupération du premier fichier
+      final fileFromArchive = archive.first;
+
+      // 4. Sauvegarde temporaire
+      final tempDir = await getTemporaryDirectory();
+      final tempFile = File('${tempDir.path}/${fileFromArchive.name}');
+      await tempFile.writeAsBytes(fileFromArchive.content as List<int>, flush: true);
+
+      // ✅ 5. Ouvre le fichier avec OpenFile (plus fiable que launchUrl)
+      final result = await OpenFile.open(tempFile.path);
+      print("Résultat ouverture : ${result.message}");
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Erreur lors de l\'ouverture du document : $e')),
+      );
+    }
+  }
+
+
+
 
   Widget _buildDocumentCard({
     required String docType,
     required String title,
-    required String? docUrl,
+    required String? docBase64, // base64 et pas url
     required bool validated,
   }) {
-    if (docUrl == null) {
+    if (docBase64 == null) {
       return Card(
         child: ListTile(
           title: Text(title),
@@ -287,13 +346,9 @@ class _EditUserPageState extends State<EditUserPage> {
           mainAxisSize: MainAxisSize.min,
           children: [
             IconButton(
-              icon: const Icon(Icons.visibility),
-              onPressed: () async {
-                final uri = Uri.parse(docUrl);
-                if (await canLaunchUrl(uri)) {
-                  await launchUrl(uri);
-                }
-              },
+              icon: const Icon(Icons.visibility, color: Colors.blue,),
+              onPressed: () => _openBase64Pdf(docBase64),
+              tooltip: "Voir le document",
             ),
             if (!validated) ...[
               IconButton(
@@ -306,13 +361,14 @@ class _EditUserPageState extends State<EditUserPage> {
                 onPressed: () => _rejectDocument(docType),
                 tooltip: "Rejeter",
               ),
+
             ]
           ],
         ),
-
       ),
     );
   }
+
 
   @override
   void dispose() {
@@ -348,6 +404,12 @@ class _EditUserPageState extends State<EditUserPage> {
       appBar: AppBar(
         title: const Text("Modifier utilisateur"),
         centerTitle: true,
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.save, color: Colors.green),
+            onPressed: _saveUser,
+          ),
+        ],
       ),
       body: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
@@ -493,18 +555,18 @@ class _EditUserPageState extends State<EditUserPage> {
               _buildDocumentCard(
                 docType: 'pieceIdentite',
                 title: "Pièce d'identité",
-                docUrl: _identityDocUrl,
+                docBase64: _identityDocUrl,
                 validated: _identityDocValidated,
               ),
 
               _buildDocumentCard(
                 docType: 'acte_de_naissance',
                 title: "Acte de naissance",
-                docUrl: _birthCertUrl,
+                docBase64: _birthCertUrl,
                 validated: _birthCertValidated,
               ),
 
-              const SizedBox(height: 24),
+              /*const SizedBox(height: 24),
               ElevatedButton(
                 onPressed: _saveUser,
                 child: const Padding(
@@ -512,6 +574,8 @@ class _EditUserPageState extends State<EditUserPage> {
                   child: Text("Sauvegarder", style: TextStyle(fontSize: 18)),
                 ),
               ),
+
+               */
             ],
           ),
         ),

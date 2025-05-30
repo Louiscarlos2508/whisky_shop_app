@@ -35,6 +35,7 @@ class _GestionUtilisateursState extends State<GestionUtilisateurs> {
           'fullName': data['fullName'] ?? '',
           'phone': data['phone'] ?? '',
           'role': data['role'] ?? '',
+          'taches': List<String>.from(data["taches"] ?? []),
           'isActive': data['isActive'] ?? true,
           'matrimoniale': data['maritalStatus'] ?? '',
           'startDate': data['startDate'] ?? '',
@@ -187,7 +188,12 @@ class _GestionUtilisateursState extends State<GestionUtilisateurs> {
                         ),
                         SizedBox(height: 12),
                         Text("Téléphone: ${user['phone'] ?? ''}"),
-                        Text("Rôle: ${user['role'] ?? ''}"),
+                        Text(
+                          "Rôle: ${user['role'] ?? ''}"
+                              "${(user['taches'] is List && user['taches'].isNotEmpty && user['role'] == 'employe')
+                              ? " [${(user['taches'] as List).map((t) => t.toString().substring(0, 1).toUpperCase() + t.toString().substring(1)).join(', ')}]"
+                              : ""}",
+                        ),
                         Text("Date de début: ${user['startDate'] ?? ''}"),
                         Text("Situation matrimoniale: ${user['matrimoniale'] ?? ''}"),
                         if (!isActive && user['deactivatedAt'] != null)

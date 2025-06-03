@@ -20,6 +20,7 @@ class ProfilPage extends StatefulWidget {
 class _ProfilePageState extends State<ProfilPage> {
   final _firestore = FirebaseFirestore.instance;
 
+  bool _isUploading = false;
   final _fullNameController = TextEditingController();
   final _roleController = TextEditingController();
   final _phoneController = TextEditingController();
@@ -47,7 +48,6 @@ class _ProfilePageState extends State<ProfilPage> {
   List<String> _educationLevels = [];
 
   List<String> _maritalStatuses = [];
-  String? _errorMessage;
   String? _profilePhotoBase64;
   final int _maxImageSizeBytes = 900 * 1024; // 900 Ko max (par sécurité)
 
@@ -142,7 +142,9 @@ class _ProfilePageState extends State<ProfilPage> {
       });
     } catch (e) {
       setState(() {
-        _errorMessage = "Erreur lors du chargement des niveaux d'études : $e";
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('"Erreur lors du chargement des niveaux d\'études : $e')),
+        );
       });
     }
   }
@@ -158,7 +160,9 @@ class _ProfilePageState extends State<ProfilPage> {
       });
     } catch (e) {
       setState(() {
-        _errorMessage = "Erreur lors du chargement des statuts matrimoniaux : $e";
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Erreur lors du chargement des statuts matrimoniaux : $e')),
+        );
       });
     }
   }
@@ -267,6 +271,10 @@ class _ProfilePageState extends State<ProfilPage> {
   Future<void> _confirmUpload() async {
     if (_selectedFile == null || _selectedFileType == null) return;
 
+    setState(() {
+      _isUploading = true;
+    });
+
     try {
       final bytes = await _selectedFile!.readAsBytes();
 
@@ -283,7 +291,7 @@ class _ProfilePageState extends State<ProfilPage> {
       final base64Zip = base64Encode(zippedBytes);
 
       // 3. Vérifie la limite Firestore
-      if (base64Zip.length > 1048487) {
+      if (base64Zip.length > _maxImageSizeBytes) {
         ScaffoldMessenger.of(context).showSnackBar(SnackBar(
           content: Text('Fichier trop lourd même compressé. Choisissez un fichier plus léger.'),
           backgroundColor: Colors.red,
@@ -312,6 +320,9 @@ class _ProfilePageState extends State<ProfilPage> {
       ));
     } catch (e) {
       print("Erreur stockage : $e");
+      setState(() {
+        _isUploading = false;
+      });
       ScaffoldMessenger.of(context).showSnackBar(SnackBar(
         content: Text('Erreur lors du stockage du document.'),
         backgroundColor: Colors.red,
@@ -385,9 +396,18 @@ class _ProfilePageState extends State<ProfilPage> {
               Row(
                 children: [
                   ElevatedButton.icon(
-                    onPressed: _confirmUpload,
-                    icon: Icon(Icons.upload),
-                    label: Text("Confirmer", style: TextStyle(color: Colors.blue),),
+                    onPressed: _isUploading ? null : _confirmUpload,
+                    icon: _isUploading
+                        ? SizedBox(
+                      width: 20,
+                      height: 20,
+                      child: CircularProgressIndicator(strokeWidth: 2, color: Colors.blue),
+                    )
+                        : Icon(Icons.upload),
+                    label: Text(
+                      _isUploading ? "Chargement..." : "Confirmer",
+                      style: TextStyle(color: Colors.blue),
+                    ),
                   ),
                   const SizedBox(width: 10),
                   TextButton(

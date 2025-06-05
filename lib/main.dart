@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_core/firebase_core.dart';
-import 'package:whiskyshop_app/pages/profil_employe_view.dart';
 import 'package:whiskyshop_app/pages/admin_dashboard.dart';
 import 'package:whiskyshop_app/pages/admin_demande_service.dart';
 import 'package:whiskyshop_app/pages/admin_home.dart';
@@ -14,6 +13,7 @@ import 'package:whiskyshop_app/pages/gestion_utilisateurs.dart';
 import 'package:whiskyshop_app/pages/liste_employes_gestion_temps.dart';
 import 'package:whiskyshop_app/pages/login.dart';
 import 'package:whiskyshop_app/pages/notification_employe_page_page.dart';
+import 'package:whiskyshop_app/pages/profil_employe_view.dart';
 import 'package:whiskyshop_app/pages/profil_page.dart';
 import 'package:whiskyshop_app/pages/scanner_qr_presence.dart';
 import 'package:whiskyshop_app/pages/signup.dart';
@@ -51,18 +51,25 @@ class MyApp extends StatelessWidget {
         "/gestion_point_vente": (context) => GestionPointVente(),
         "/paiement": (context) =>GestionPaiements(),
         "/stats": (context) => Stats(),
-        //"/emploi_du_temps_employe": (context) => EmploiDuTempsEmploye(),
-        "/liste_employe_gestion": (context) => ListeEmployesGestion(),
+        //"/emploi_du_temps": (context) => EmploiDuTemps(employeId: '',),
+       // "/emploi_du_temps_employe": (context) => EmploiDuTempsEmploye(),
         "/admin_demande_service": (context) => AdminDemandeService(),
         "/generer_qr_presence": (context) => GenererQrCodePresence(),
         "/scanner_qr_presence": (context) => ScannerQrPresence(),
          "/notifications_employe_page": (context) => NotificationsEmployePage(),
          "/suivi_employes_page": (context) => SuiviEmployesPage(),
          "/suivi_gerant_page": (context) => SuiviGerantPage(),
+         //"/edit_user_page": (context) => EditUserPage(userId: '',),
+        //  "/emploiDuTempsEmploye": (context) => EmploiDuTempsEmploye(),
+         "/liste_employes_gestion_temps": (context) => ListeEmployesGestion(),
+        //"/profil_employe_view": (context) => ProfilCompletPage(),
+
+         
+
 
 
       },
-      onGenerateRoute: (settings) {
+            onGenerateRoute: (settings) {
         final uri = Uri.parse(settings.name ?? '');
 
         // Profil dynamique : /profile/:id
@@ -83,7 +90,6 @@ class MyApp extends StatelessWidget {
 
         return null;
       },
-
     );
   }
 }

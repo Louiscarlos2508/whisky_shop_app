@@ -53,7 +53,7 @@ class _ScannerQrPresenceState extends State<ScannerQrPresence> {
     if (user != null) {
       final now = DateTime.now();
       final todayStart = DateTime(now.year, now.month, now.day);
-      final snapshot = await FirebaseFirestore.instance
+      try { final snapshot = await FirebaseFirestore.instance
           .collection('pointages')
           .where('uid', isEqualTo: user.uid)
           .where('date', isGreaterThanOrEqualTo: Timestamp.fromDate(todayStart))
@@ -67,50 +67,75 @@ class _ScannerQrPresenceState extends State<ScannerQrPresence> {
           pointageDocId = snapshot.docs.first.id;
         });
       }
+      } catch (e, stack) {
+  debugPrint("🔥 ERREUR FIRESTORE : $e");
+  debugPrint("📌 STACK : $stack");
+}
     }
   }
 
-  void _handleScan(String data) async {
-    if (scanned || !geolocationActive) return;
-    scanned = true;
+void _handleScan(String data) async {
+  if (scanned || !geolocationActive) return;
+  scanned = true;
 
-    try {
-      final parts = data.split('|');
-      if (parts.length != 2) throw Exception("Format de QR Code invalide");
+  try {
+    final parts = data.split('|');
+    if (parts.length != 2) throw Exception("Format de QR Code invalide");
 
-      final pointDeVenteIdQR = parts[0];
-      final dateQR = parts[1];
-      final today = DateFormat('yyyy-MM-dd').format(DateTime.now());
+    final pointDeVenteIdQR = parts[0];
+    final dateQR = parts[1];
+    final today = DateFormat('yyyy-MM-dd').format(DateTime.now());
 
-      final user = FirebaseAuth.instance.currentUser;
-      if (user == null) throw Exception("Utilisateur non connecté");
+    final user = FirebaseAuth.instance.currentUser;
+    if (user == null) throw Exception("Utilisateur non connecté");
 
-      final userDoc = await FirebaseFirestore.instance
-          .collection('users')
-          .doc(user.uid)
+    final userDoc = await FirebaseFirestore.instance
+        .collection('users')
+        .doc(user.uid)
+        .get();
+
+    final userPointDeVente = userDoc['pointDeVenteId'];
+
+    if (pointDeVenteIdQR == userPointDeVente && dateQR == today) {
+      // 🔴 Vérifie d'abord si une présence sans sortie existe déjà
+      final now = DateTime.now();
+      final todayStart = DateTime(now.year, now.month, now.day);
+      final snapshot = await FirebaseFirestore.instance
+          .collection('pointages')
+          .where('uid', isEqualTo: user.uid)
+          .where('date', isGreaterThanOrEqualTo: Timestamp.fromDate(todayStart))
+          .where('sortie', isNull: true)
+          .limit(1)
           .get();
 
-      final userPointDeVente = userDoc['pointDeVenteId'];
-
-      if (pointDeVenteIdQR == userPointDeVente && dateQR == today) {
-        await FirebaseFirestore.instance.collection('pointages').add({
-          'uid': user.uid,
-          'pointDeVenteId': pointDeVenteIdQR,
-          'date': Timestamp.now(),
-          'sortie': null,
-        });
-
-        _showMessage("Présence marquée avec succès !");
-      } else {
-        _showMessage("QR Code invalide ou expiré !");
+      if (snapshot.docs.isNotEmpty) {
+        _showMessage("Vous avez déjà marqué votre présence !");
+        return;
       }
-    } catch (e) {
-      _showMessage("Erreur : ${e.toString()}");
-    }
 
-    await Future.delayed(const Duration(seconds: 3));
-    if (mounted) Navigator.pop(context);
+      await FirebaseFirestore.instance.collection('pointages').add({
+        'uid': user.uid,
+        'pointDeVenteId': pointDeVenteIdQR,
+        'date': Timestamp.now(),
+        'sortie': null,
+      });
+
+      _showMessage("Présence marquée avec succès !");
+      setState(() {
+        showSortieButton = true;
+        pointageDocId = null; // on pourrait le mettre à jour si besoin
+      });
+    } else {
+      _showMessage("QR Code invalide ou expiré !");
+    }
+  } catch (e) {
+    _showMessage("Erreur : ${e.toString()}");
   }
+
+  await Future.delayed(const Duration(seconds: 3));
+  if (mounted) Navigator.pop(context);
+}
+
 
   Future<void> _marquerSortie() async {
     if (pointageDocId == null) return;

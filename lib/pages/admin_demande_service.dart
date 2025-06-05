@@ -51,13 +51,39 @@ class _AdminDemandeServiceState extends State<AdminDemandeService> {
   }
 
   Future<void> _changerStatut(String docId, String statut) async {
-    await FirebaseFirestore.instance.collection('demandedeservice').doc(docId).update({
-      'statut': statut,
-    });
+  final confirmation = await showDialog<bool>(
+    context: context,
+    builder: (context) => AlertDialog(
+      title: Text("Confirmation"),
+      content: Text("Es-tu sûr de vouloir ${statut == 'validée' ? 'valider' : 'refuser'} cette demande ?"),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.pop(context, false),
+          child: Text("Annuler"),
+        ),
+        ElevatedButton(
+          onPressed: () => Navigator.pop(context, true),
+          style: ElevatedButton.styleFrom(
+            backgroundColor: statut == 'validée' ? Colors.green : Colors.red,
+          ),
+          child: Text(statut == 'validée' ? "Valider" : "Refuser"),
+        ),
+      ],
+    ),
+  );
+
+  if (confirmation == true) {
+    await FirebaseFirestore.instance
+        .collection('demandedeservice')
+        .doc(docId)
+        .update({'statut': statut});
+
     ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text("Demande $statut")),
+      SnackBar(content: Text("Demande ${statut == 'validée' ? 'validée' : 'refusée'}")),
     );
   }
+}
+
 
   Future<String> _getNomPointVente(String pointDeVenteId) async {
     if (pointDeVenteId.isEmpty) return '---';
@@ -91,69 +117,75 @@ class _AdminDemandeServiceState extends State<AdminDemandeService> {
 
           return ListView.builder(
             itemCount: docs.length,
-itemBuilder: (context, index) {
-  final doc = docs[index];
-  final data = doc.data() as Map<String, dynamic>;
+            itemBuilder: (context, index) {
+              final doc = docs[index];
+              final data = doc.data() as Map<String, dynamic>;
 
-  final texte = data['texte'] ?? '';
-  final audioBase64 = data['audioBase64'];
-  final nom = data['nom'] ?? 'Inconnu';
-  final poste = data['poste'] ?? '---'; // "poste" au lieu de "role"
-  final pointDeVenteId = data['pointDeVenteId'] ?? '';
-  final statut = data['statut'] ?? 'en attente';
-  final docId = doc.id;
+              final texte = data['texte'] ?? '';
+              final audioBase64 = data['audioBase64'];
+              final nom = data['nom'] ?? 'Inconnu';
+              final poste = data['poste'] ?? '---';
+              final pointDeVenteId = data['pointDeVenteId'] ?? '';
+              final statut = data['statut'] ?? 'en attente';
+              final type = data['typeDemande'] ?? '';
+              final docId = doc.id;
 
-  // Convertir timestamp Firestore en DateTime
-  final Timestamp? timestamp = data['timestamp'];
-  final date = timestamp != null ? timestamp.toDate() : DateTime.now();
-  final formattedDate = "${date.day}/${date.month}/${date.year} à ${date.hour.toString().padLeft(2, '0')}h${date.minute.toString().padLeft(2, '0')}";
+              final montantPret = data['montantPret'];
+              final periodeRemboursement = data['periodeRemboursement'];
 
-  return FutureBuilder<String>(
-    future: _getNomPointVente(pointDeVenteId),
-    builder: (context, snapshotPV) {
-      final nomPointVente = snapshotPV.data ?? '---';
+              final Timestamp? timestamp = data['timestamp'];
+              final date = timestamp != null ? timestamp.toDate() : DateTime.now();
+              final formattedDate = "${date.day}/${date.month}/${date.year} à ${date.hour.toString().padLeft(2, '0')}h${date.minute.toString().padLeft(2, '0')}";
 
-      return Card(
-        margin: EdgeInsets.all(10),
-        child: ListTile(
-          title: Text(texte),
-          subtitle: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text("Demandeur : $nom"),
-              Text("Poste : $poste"),
-              Text("Point de vente : $nomPointVente"),
-              Text("Envoyée le : $formattedDate"),
-              Text("Statut : $statut"),
-              if (audioBase64 != null)
-                TextButton.icon(
-                  onPressed: () => _playAudio(docId, audioBase64),
-                  icon: Icon(_playingId == docId ? Icons.stop : Icons.play_arrow),
-                  label: Text(_playingId == docId ? "Arrêter l’audio" : "Écouter audio"),
-                ),
-              Row(
-                children: [
-                  ElevatedButton(
-                    onPressed: () => _changerStatut(docId, "validée"),
-                    style: ElevatedButton.styleFrom(backgroundColor: Colors.green),
-                    child: Text("Valider"),
-                  ),
-                  const SizedBox(width: 10),
-                  ElevatedButton(
-                    onPressed: () => _changerStatut(docId, "refusée"),
-                    style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
-                    child: Text("Refuser"),
-                  ),
-                ],
-              )
-            ],
-          ),
-        ),
-      );
-    },
-  );
-}
+              return FutureBuilder<String>(
+                future: _getNomPointVente(pointDeVenteId),
+                builder: (context, snapshotPV) {
+                  final nomPointVente = snapshotPV.data ?? '---';
 
+                  return Card(
+                    margin: EdgeInsets.all(10),
+                    child: ListTile(
+                      title: Text(texte),
+                      subtitle: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text("Demandeur : $nom"),
+                          Text("Poste : $poste"),
+                          Text("Point de vente : $nomPointVente"),
+                          Text("Envoyée le : $formattedDate"),
+                          Text("Statut : $statut"),
+                          if (type.trim().toLowerCase() == 'pret' &&
+                              montantPret != null &&
+                              periodeRemboursement != null)
+                            Text("Prêt demandé : ${montantPret.toString()} FCFA sur $periodeRemboursement"),
+                          if (audioBase64 != null)
+                            TextButton.icon(
+                              onPressed: () => _playAudio(docId, audioBase64),
+                              icon: Icon(_playingId == docId ? Icons.stop : Icons.play_arrow),
+                              label: Text(_playingId == docId ? "Arrêter l’audio" : "Écouter audio"),
+                            ),
+                          Row(
+                            children: [
+                              ElevatedButton(
+                                onPressed: () => _changerStatut(docId, "validée"),
+                                style: ElevatedButton.styleFrom(backgroundColor: Colors.green),
+                                child: Text("Valider"),
+                              ),
+                              const SizedBox(width: 10),
+                              ElevatedButton(
+                                onPressed: () => _changerStatut(docId, "refusée"),
+                                style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
+                                child: Text("Refuser"),
+                              ),
+                            ],
+                          )
+                        ],
+                      ),
+                    ),
+                  );
+                },
+              );
+            },
           );
         },
       ),

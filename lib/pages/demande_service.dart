@@ -1,3 +1,4 @@
+// ... [Imports inchangés]
 import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
@@ -30,10 +31,15 @@ class _DemandeServiceState extends State<DemandeService> {
   Timer? _timer;
 
   final TextEditingController _textController = TextEditingController();
+  final TextEditingController _montantPretController = TextEditingController();
+  final TextEditingController _periodeRemboursementController = TextEditingController();
 
   String? nomUtilisateur;
   String? posteUtilisateur;
   String? pointDeVenteId;
+
+  String _typeDemande = 'absence';
+  String? _sousType; // urgence, manifestation, maladie, etc.
 
   @override
   void initState() {
@@ -80,6 +86,8 @@ class _DemandeServiceState extends State<DemandeService> {
     _recorder.closeRecorder();
     _player.closePlayer();
     _textController.dispose();
+    _montantPretController.dispose();
+    _periodeRemboursementController.dispose();
     _timer?.cancel();
     super.dispose();
   }
@@ -89,17 +97,11 @@ class _DemandeServiceState extends State<DemandeService> {
     final uniqueFileName = 'audio_${DateTime.now().millisecondsSinceEpoch}.aac';
     _filePath = '${dir.path}/$uniqueFileName';
 
-    await _recorder.startRecorder(
-      toFile: _filePath,
-      codec: Codec.aacADTS,
-    );
-
+    await _recorder.startRecorder(toFile: _filePath, codec: Codec.aacADTS);
     _recorderController.record();
 
     _timer = Timer.periodic(Duration(seconds: 1), (Timer t) {
-      setState(() {
-        _recordDuration = Duration(seconds: _recordDuration.inSeconds + 1);
-      });
+      setState(() => _recordDuration = Duration(seconds: _recordDuration.inSeconds + 1));
     });
 
     setState(() => _isRecording = true);
@@ -108,7 +110,6 @@ class _DemandeServiceState extends State<DemandeService> {
   Future<void> _stopRecording() async {
     await _recorder.stopRecorder();
     await _recorderController.stop();
-
     _timer?.cancel();
     setState(() => _isRecording = false);
 
@@ -139,9 +140,7 @@ class _DemandeServiceState extends State<DemandeService> {
   }
 
   void _resetAudio() {
-    if (_filePath != null) {
-      File(_filePath!).delete();
-    }
+    if (_filePath != null) File(_filePath!).delete();
     setState(() {
       _audioBase64 = null;
       _filePath = null;
@@ -157,6 +156,18 @@ class _DemandeServiceState extends State<DemandeService> {
       return;
     }
 
+    double? montantPret;
+    int? periode;
+    double montantRestant = 0.0;
+
+    if (_typeDemande == 'pret') {
+      montantPret = double.tryParse(_montantPretController.text);
+      periode = int.tryParse(_periodeRemboursementController.text);
+      if (montantPret != null && periode != null && periode > 0) {
+        montantRestant = montantPret;
+      }
+    }
+
     await FirebaseFirestore.instance.collection('demandedeservice').add({
       'texte': _textController.text.trim().isNotEmpty ? _textController.text.trim() : null,
       'audioBase64': _audioBase64,
@@ -167,6 +178,12 @@ class _DemandeServiceState extends State<DemandeService> {
       'nom': nomUtilisateur ?? '',
       'poste': posteUtilisateur ?? '',
       'pointDeVenteId': pointDeVenteId ?? '',
+      'typeDemande': _typeDemande,
+      'sousType': _sousType,
+      'montantPret': montantPret,
+      'periodeRemboursement': periode,
+      'montantRestant': montantRestant,
+      'dateDemandePret': _typeDemande == 'pret' ? DateFormat('yyyy-MM-dd').format(DateTime.now()) : null,
     });
 
     ScaffoldMessenger.of(context).showSnackBar(
@@ -175,6 +192,8 @@ class _DemandeServiceState extends State<DemandeService> {
 
     _resetAudio();
     _textController.clear();
+    _montantPretController.clear();
+    _periodeRemboursementController.clear();
   }
 
   String _formatDuration(Duration duration) {
@@ -188,13 +207,52 @@ class _DemandeServiceState extends State<DemandeService> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(title: Text("Faire une demande")),
-      body: Padding(
+      body: SingleChildScrollView(
         padding: const EdgeInsets.all(16.0),
         child: Column(
           children: [
+            DropdownButtonFormField<String>(
+              value: _typeDemande,
+              items: [
+                DropdownMenuItem(value: 'absence', child: Text('Absence')),
+                DropdownMenuItem(value: 'conge', child: Text('Congé')),
+                DropdownMenuItem(value: 'pret', child: Text('Prêt')),
+              ],
+              onChanged: (val) => setState(() {
+                _typeDemande = val!;
+                _sousType = null;
+              }),
+              decoration: InputDecoration(labelText: "Type de demande"),
+            ),
+            const SizedBox(height: 10),
+            if (_typeDemande == 'absence' || _typeDemande == 'conge') ...[
+              DropdownButtonFormField<String>(
+                value: _sousType,
+                items: (_typeDemande == 'absence'
+                        ? ['urgence', 'manifestation']
+                        : ['maladie', 'grossesse', 'opération'])
+                    .map((e) => DropdownMenuItem(value: e, child: Text(e.capitalize())))
+                    .toList(),
+                onChanged: (val) => setState(() => _sousType = val),
+                decoration: InputDecoration(labelText: "Motif"),
+              ),
+            ],
+            if (_typeDemande == 'pret') ...[
+              TextFormField(
+                controller: _montantPretController,
+                keyboardType: TextInputType.number,
+                decoration: InputDecoration(labelText: "Montant du prêt"),
+              ),
+              TextFormField(
+                controller: _periodeRemboursementController,
+                keyboardType: TextInputType.number,
+                decoration: InputDecoration(labelText: "Période de remboursement (mois)"),
+              ),
+            ],
+            const SizedBox(height: 20),
             TextField(
               controller: _textController,
-              maxLines: 4,
+              maxLines: 3,
               decoration: InputDecoration(
                 labelText: "Message (texte)",
                 border: OutlineInputBorder(),
@@ -247,4 +305,8 @@ class _DemandeServiceState extends State<DemandeService> {
       ),
     );
   }
+}
+
+extension StringExtension on String {
+  String capitalize() => this[0].toUpperCase() + substring(1);
 }

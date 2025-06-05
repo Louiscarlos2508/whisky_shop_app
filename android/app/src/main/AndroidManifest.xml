@@ -1,6 +1,4 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
-
-    <uses-feature android:name="android.hardware.camera" android:required="true" />
     <application
         android:label="whiskyshop_app"
         android:name="${applicationName}"
@@ -34,7 +32,7 @@
         <meta-data
             android:name="flutterEmbedding"
             android:value="2" />
-
+            <uses-feature android:name="android.hardware.camera" android:required="true" />
 
             
     </application>
@@ -51,7 +49,7 @@
     </queries>
     <uses-permission android:name="android.permission.CAMERA"/>
     <uses-permission android:name="android.permission.RECORD_AUDIO"/>
-    <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE" android:maxSdkVersion="28"/>
+    <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE"/>
     <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE"/>
     <uses-permission android:name="android.permission.MANAGE_EXTERNAL_STORAGE"/>
 

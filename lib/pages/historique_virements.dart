@@ -7,6 +7,8 @@ class HistoriqueVirements extends StatelessWidget {
     {"Date": "15/03/2025", "Montant": "600 FCFA"},
   ];
 
+  HistoriqueVirements({super.key});
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(

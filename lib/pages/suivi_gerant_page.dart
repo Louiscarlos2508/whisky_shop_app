@@ -3,8 +3,6 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 
 class SuiviGerantPage extends StatefulWidget {
-  const SuiviGerantPage({super.key});
-
   @override
   _SuiviGerantPageState createState() => _SuiviGerantPageState();
 }
@@ -49,85 +47,38 @@ class _SuiviGerantPageState extends State<SuiviGerantPage> {
     setState(() {});
   }
 
-  bool isLoading = false;
-
   Future<void> soumettreNote() async {
     if (selectedGerantUid == null) {
       ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("Veuillez choisir un gérant.")));
       return;
     }
 
-    setState(() => isLoading = true);
+    final gerantRef = FirebaseFirestore.instance.collection('users').doc(selectedGerantUid);
+    final doc = await gerantRef.get();
 
-    try {
-      final firestore = FirebaseFirestore.instance;
+    double ancienneNote = 0;
+    int totalNotes = 0;
 
-      await firestore
-          .collection('users')
-          .doc(selectedGerantUid)
-          .collection('notes')
-          .add({
-        'employeId': currentUser!.uid,
-        'note': note,
-        'type': 'note',
-        'commentaire': commentaireController.text.trim(),
-        'timestamp': FieldValue.serverTimestamp(),
-        'lu': false,
-      });
-
-      final notesSnapshot = await firestore
-          .collection('users')
-          .doc(selectedGerantUid)
-          .collection('notes')
-          .get();
-
-      double total = 0;
-      int count = notesSnapshot.docs.length;
-
-      for (var doc in notesSnapshot.docs) {
-        total += (doc.data()['note'] ?? 0).toDouble();
-      }
-
-      double moyenne = total / count;
-
-      await firestore.collection('users').doc(selectedGerantUid).update({
-        'type': 'note',
-        'note': double.parse(moyenne.toStringAsFixed(1)),
-        'totalNotes': count,
-        'timestamp': FieldValue.serverTimestamp(),
-        'lu': false,
-      });
-
-      // Ajouter une notification pour le gérant
-      /*await firestore
-          .collection('users')
-          .doc(selectedGerantUid)
-          .collection('notifications')
-          .add({
-        'type': 'note',
-        'message': 'Vous avez reçu une nouvelle note de ${currentUser!.displayName ?? 'un employé'}.',
-        'timestamp': FieldValue.serverTimestamp(),
-        'seen': false,
-      });
-
-       */
-
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("Note enregistrée avec succès.")));
-
-
-      commentaireController.clear();
-      setState(() {
-        selectedGerantUid = null;
-        note = 3;
-      });
-    } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("Erreur lors de la soumission : $e")));
-    } finally {
-      setState(() => isLoading = false);
+    if (doc.exists) {
+      final data = doc.data()!;
+      ancienneNote = (data['note'] ?? 0).toDouble();
+      totalNotes = (data['totalNotes'] ?? 0);
     }
+
+    double nouvelleNote = ((ancienneNote * totalNotes) + note) / (totalNotes + 1);
+
+    await gerantRef.update({
+      'note': double.parse(nouvelleNote.toStringAsFixed(1)),
+      'totalNotes': totalNotes + 1,
+    });
+
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("Note soumise avec succès.")));
+    commentaireController.clear();
+    setState(() {
+      selectedGerantUid = null;
+      note = 3;
+    });
   }
-
-
 
   @override
   Widget build(BuildContext context) {
@@ -177,19 +128,12 @@ class _SuiviGerantPageState extends State<SuiviGerantPage> {
                   ),
                   SizedBox(height: 20),
                   ElevatedButton(
-                    onPressed: isLoading ? null : soumettreNote,
-                    child: isLoading ? CircularProgressIndicator(color: Colors.white) : Text("Soumettre la note"),
+                    onPressed: soumettreNote,
+                    child: Text("Soumettre la note"),
                   )
                 ],
               ),
       ),
     );
   }
-
-  @override
-  void dispose() {
-    commentaireController.dispose();
-    super.dispose();
-  }
-
 }

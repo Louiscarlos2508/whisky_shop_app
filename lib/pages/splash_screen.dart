@@ -10,7 +10,7 @@ class SplashScreen extends StatefulWidget {
   const SplashScreen({super.key});
 
   @override
-  State<SplashScreen> createState() => _SplashScreenState();
+  _SplashScreenState createState() => _SplashScreenState();
 }
 
 class _SplashScreenState extends State<SplashScreen> {
@@ -23,14 +23,11 @@ class _SplashScreenState extends State<SplashScreen> {
   Future<void> _checkUser() async {
     await Future.delayed(const Duration(seconds: 3)); // Temps d'affichage du Splash
     User? user = FirebaseAuth.instance.currentUser;
-
-    if(!mounted) return;
-
+    
     if (user != null) {
       DocumentSnapshot userDoc = await FirebaseFirestore.instance.collection("users").doc(user.uid).get();
       String role = userDoc.get("role");
 
-      if(!mounted) return;
       if (role == "Administrateur") {
         Navigator.pushReplacement(context, MaterialPageRoute(builder: (_) => AdminDashboard()));
       } else if (role == "Gérant") {

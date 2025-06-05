@@ -1,0 +1,2 @@
+/home/soutonnoma/whiskyshop_app/android/app/.cxx/Debug/1h13o51u/armeabi-v7a/CMakeFiles/edit_cache.dir
+/home/soutonnoma/whiskyshop_app/android/app/.cxx/Debug/1h13o51u/armeabi-v7a/CMakeFiles/rebuild_cache.dir

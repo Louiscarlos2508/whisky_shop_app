@@ -1,0 +1,2 @@
+C:/Projetflutter/whiskyshop_app/android/app/.cxx/RelWithDebInfo/6dh6g6y4/arm64-v8a/CMakeFiles/edit_cache.dir
+C:/Projetflutter/whiskyshop_app/android/app/.cxx/RelWithDebInfo/6dh6g6y4/arm64-v8a/CMakeFiles/rebuild_cache.dir

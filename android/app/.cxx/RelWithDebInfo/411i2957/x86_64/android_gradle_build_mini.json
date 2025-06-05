@@ -1,0 +1,20 @@
+{
+  "buildFiles": [
+    "/home/soutonnoma/development/flutter/packages/flutter_tools/gradle/src/main/groovy/CMakeLists.txt"
+  ],
+  "cleanCommandsComponents": [
+    [
+      "/home/soutonnoma/Android/Sdk/cmake/3.22.1/bin/ninja",
+      "-C",
+      "/media/soutonnoma/CCCOMA_X64FRE_FR-FR_DV9/whiskyshop_app/android/app/.cxx/RelWithDebInfo/411i2957/x86_64",
+      "clean"
+    ]
+  ],
+  "buildTargetsCommandComponents": [
+    "/home/soutonnoma/Android/Sdk/cmake/3.22.1/bin/ninja",
+    "-C",
+    "/media/soutonnoma/CCCOMA_X64FRE_FR-FR_DV9/whiskyshop_app/android/app/.cxx/RelWithDebInfo/411i2957/x86_64",
+    "{LIST_OF_TARGETS_TO_BUILD}"
+  ],
+  "libraries": {}
+}

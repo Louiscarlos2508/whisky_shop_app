@@ -1,0 +1,1 @@
+/media/soutonnoma/CCCOMA_X64FRE_FR-FR_DV9/whiskyshop_app/build/app/intermediates/cxx/RelWithDebInfo/411i2957/obj/arm64-v8a

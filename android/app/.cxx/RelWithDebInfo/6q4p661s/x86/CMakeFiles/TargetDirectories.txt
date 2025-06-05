@@ -1,0 +1,2 @@
+/home/soutonnoma/whiskyshop_app/android/app/.cxx/RelWithDebInfo/6q4p661s/x86/CMakeFiles/edit_cache.dir
+/home/soutonnoma/whiskyshop_app/android/app/.cxx/RelWithDebInfo/6q4p661s/x86/CMakeFiles/rebuild_cache.dir

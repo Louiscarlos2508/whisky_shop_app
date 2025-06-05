@@ -1,0 +1,2 @@
+/media/soutonnoma/CCCOMA_X64FRE_FR-FR_DV9/whiskyshop_app/android/app/.cxx/RelWithDebInfo/411i2957/x86_64/CMakeFiles/edit_cache.dir
+/media/soutonnoma/CCCOMA_X64FRE_FR-FR_DV9/whiskyshop_app/android/app/.cxx/RelWithDebInfo/411i2957/x86_64/CMakeFiles/rebuild_cache.dir

@@ -52,7 +52,18 @@ class _LoginPageState extends State<LoginPage> {
           
           // Redirection selon le rôle par exemple
           String role = userData['role'] ?? 'employé';
-          Navigator.pushReplacementNamed(context, '/${role}_dashboard');
+          switch (role) {
+            case 'admin':
+              Navigator.pushReplacementNamed(context, '/admin_dashboard');
+              break;
+            case 'gerant':
+              Navigator.pushReplacementNamed(context, '/gerant_dashboard');
+              break;
+            case 'employe':
+            default:
+              Navigator.pushReplacementNamed(context, '/employe_dashboard');
+              break;
+          }
         }
       } else {
         setState(() {

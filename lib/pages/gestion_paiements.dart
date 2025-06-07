@@ -1,5 +1,6 @@
 import 'dart:io';
 import 'package:external_path/external_path.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:intl/intl.dart';
@@ -12,7 +13,7 @@ class GestionPaiements extends StatefulWidget {
   const GestionPaiements({super.key});
 
   @override
-  _GestionPaiementsState createState() => _GestionPaiementsState();
+  State<GestionPaiements> createState() => _GestionPaiementsState();
 }
 
 class _GestionPaiementsState extends State<GestionPaiements> {
@@ -29,63 +30,86 @@ class _GestionPaiementsState extends State<GestionPaiements> {
 
   Future<void> _fetchData() async {
     try {
-      final paiementsSnapshot = await _firestore.collection('paiements').get();
-      final usersSnapshot = await _firestore.collection('users').get();
-      final pretsSnapshot = await _firestore.collection('prets').get();
+      // Récupération parallèle des données Firestore
+      final results = await Future.wait([
+        _firestore.collection('paiements').get(),
+        _firestore.collection('users').get(),
+        _firestore
+            .collection('demandedeservice')
+            .where('typeDemande', isEqualTo: 'pret')
+            .where('statut', isEqualTo: 'validée')
+            .where('montantRestant', isGreaterThan: 0)
+            .get(),
+      ]);
 
-      Map<String, String> beneficiaires = {};
-      for (var doc in usersSnapshot.docs) {
-        String userId = doc.id;
-        String fullName = doc['fullName'];
-        beneficiaires[userId] = fullName;
-      }
+      final paiementsSnapshot = results[0];
+      final usersSnapshot = results[1];
+      final demandesPretSnapshot = results[2];
 
+      // Construction de la map des bénéficiaires
+      Map<String, String> beneficiaires = {
+        for (var doc in usersSnapshot.docs) doc.id: doc['fullName'] ?? 'Inconnu',
+      };
+
+      // Construction de la map des prêts valides avec tranches restantes
       Map<String, Map<String, dynamic>> pretsMap = {};
-      for (var doc in pretsSnapshot.docs) {
-        String userId = doc['userId'];
-        if ((doc['tranchesRestantes'] ?? 0) > 0) {
+      for (var doc in demandesPretSnapshot.docs) {
+        final data = doc.data();
+        String userId = data['userId'];
+
+        if ((data['tranchesRestantes'] ?? 0) > 0) {
+          Timestamp? timestamp = data['timestamp'];
+          String datePret = (timestamp != null)
+              ? DateFormat('dd/MM/yyyy').format(timestamp.toDate())
+              : '-';
+
           pretsMap[userId] = {
-            'montantPret': doc['montantPret'],
-            'periode': doc['periode'],
-            'tranchesRestantes': doc['tranchesRestantes'],
-            'montantRestant': doc['montantRestant'],
-            'datePret': DateFormat('dd/MM/yyyy').format((doc['dateCreation'] as Timestamp).toDate()),
+            'montantPret': data['montantPret'] ?? 0,
+            'periode': data['periodeRemboursement'] ?? 0,
+            'tranchesRestantes': data['tranchesRestantes'] ?? 0,
+            'montantRestant': data['montantRestant'] ?? 0,
+            'datePret': datePret,
             'docId': doc.id,
           };
         }
       }
 
-
+      // Mise à jour de l'état
       setState(() {
         _beneficiairesMap = beneficiaires;
         _paiements = paiementsSnapshot.docs.map((doc) {
-          String beneficiaireId = doc['beneficiaire'];
+          final data = doc.data();
+          String beneficiaireId = data['beneficiaire'];
           var pretInfo = pretsMap[beneficiaireId];
 
-          Timestamp timestamp = doc['date'] ?? Timestamp.now();
+          // Sécuriser le champ date
+          Timestamp timestamp = data['date'] ?? Timestamp.now();
           String dateFormatted = DateFormat('dd/MM/yyyy').format(timestamp.toDate());
 
           return {
             'id': doc.id,
-            'beneficiaire': _beneficiairesMap[beneficiaireId] ?? 'Inconnu',
+            'beneficiaire': beneficiaires[beneficiaireId] ?? 'Inconnu',
             'beneficiaireId': beneficiaireId,
-            'montant': doc['montant'],
-            'modePaiement': doc['modePaiement'],
-            'statut': doc['statut'],
+            'montant': data['montant'],
+            'montantFinal': data['montantFinal'] ?? data['montant'],
+            'modePaiement': data['modePaiement'],
+            'statut': data['statut'],
             'date': dateFormatted,
             'montantPret': pretInfo?['montantPret'] ?? 0,
-            'periode': pretInfo?['periode'] ?? 0,
+            'periodeRemboursement': pretInfo?['periode'] ?? 0,
             'tranchesRestantes': pretInfo?['tranchesRestantes'] ?? 0,
             'montantRestant': pretInfo?['montantRestant'] ?? 0,
             'datePret': pretInfo?['datePret'] ?? '-',
-            'telDestinataire': doc['telDestinataire'] ?? '',
+            'telDestinataire': data['telDestinataire'] ?? '',
             'pretDocId': pretInfo?['docId'],
           };
         }).toList();
         _loading = false;
       });
     } catch (e) {
-      print("Erreur : $e");
+      if (kDebugMode) {
+        print("Erreur lors du chargement des données : $e");
+      }
       setState(() => _loading = false);
     }
   }
@@ -94,17 +118,21 @@ class _GestionPaiementsState extends State<GestionPaiements> {
 
 
 
+
+
   Future<void> _initierPaiement(Map<String, dynamic> paiement) async {
     String tel = paiement['telDestinataire'];
-    double montantFinal = paiement['montantFinal'] ?? paiement['montant'];
+    double montantFinal = (paiement['montantFinal'] ?? 0).toDouble() ?? paiement['montant'];
 
     // Formatage en string sans décimales
     String montantFinalStr = montantFinal.toStringAsFixed(0);
 
-    final uri = Uri.parse('tel:${Uri.encodeComponent("*144*2*1*$tel*$montantFinalStr#")}');
+    final uri = Uri.parse('tel:${Uri.encodeComponent("*144*2*$tel*$montantFinalStr#")}');
 
     if (await canLaunchUrl(uri)) {
       await launchUrl(uri);
+
+      if(!mounted) return;
 
       showDialog(
         context: context,
@@ -127,41 +155,67 @@ class _GestionPaiementsState extends State<GestionPaiements> {
         ),
       );
     } else {
+      if(!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("Impossible de lancer le téléphone")));
     }
   }
 
+  void _supprimerPaiement(String id) async {
+    final confirmation = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text("Confirmation"),
+        content: Text("Voulez-vous vraiment supprimer ce paiement ?"),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(context, false), child: Text("Annuler")),
+          TextButton(
+            onPressed: () => Navigator.pop(context, true),
+            child: Text("Supprimer", style: TextStyle(color: Colors.red)),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmation == true) {
+      final doc = await FirebaseFirestore.instance.collection('paiements').doc(id).get();
+      if (!doc.exists) return;
+
+      final data = doc.data()!;
+      final double montantPret = (data['montantPret'] ?? 0).toDouble();
+      final String? pretDocId = data['pretDocId'];
+
+      int nbTranches = 1;
+
+      // Rétablir les données du prêt si applicable
+      if (pretDocId != null && montantPret > 0) {
+        final pretRef = FirebaseFirestore.instance.collection('demandedeservice').doc(pretDocId);
+        await FirebaseFirestore.instance.runTransaction((transaction) async {
+          final pretSnapshot = await transaction.get(pretRef);
+          final pretData = pretSnapshot.data();
+          if (pretData == null) return;
+
+          final double ancienRestant = (pretData['montantRestant'] ?? 0).toDouble();
+          final int anciennesTranches = (pretData['tranchesRestantes'] ?? 0).toInt();
+
+          transaction.update(pretRef, {
+            'montantRestant': ancienRestant + montantPret,
+            'tranchesRestantes': anciennesTranches + nbTranches,
+          });
+        });
+      }
+
+      // Marquer le paiement comme annulé
+      await FirebaseFirestore.instance.collection('paiements').doc(id).update({
+        'statut': 'annulé',
+      });
+
+      _fetchData();
+    }
+  }
 
   Future<void> _validerPaiement(Map<String, dynamic> paiement) async {
-    final id = paiement['id'];
-    final pretDocId = paiement['pretDocId'];
+    final String id = paiement['id'];
 
-    double montant = paiement['montant'];
-    double montantPret = paiement['montantPret'];
-    int tranchesRestantes = paiement['tranchesRestantes'];
-    double montantRestant = paiement['montantRestant'];
-    int periode = paiement['periodeRemboursement'];
-
-    if (montantPret > 0 && pretDocId != null) {
-      // Calcul tranche et déduction du prêt
-      double tranche = montantPret / periode;
-      int nbTranchesPayees = (montant / tranche).floor();
-      double montantDeduit = nbTranchesPayees * tranche;
-
-      double nouveauMontantRestant = montantRestant - montantDeduit;
-      int nouvellesTranches = tranchesRestantes - nbTranchesPayees;
-
-      if (nouveauMontantRestant < 0) nouveauMontantRestant = 0;
-      if (nouvellesTranches < 0) nouvellesTranches = 0;
-
-      // Mise à jour prêt
-      await _firestore.collection('prets').doc(pretDocId).update({
-        'montantRestant': nouveauMontantRestant,
-        'tranchesRestantes': nouvellesTranches,
-      });
-    }
-
-    // Mise à jour statut paiement
     await _firestore.collection('paiements').doc(id).update({
       'statut': 'Effectué',
     });
@@ -169,27 +223,6 @@ class _GestionPaiementsState extends State<GestionPaiements> {
     _fetchData();
   }
 
-
-  void _supprimerPaiement(String id) {
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: Text("Confirmation"),
-        content: Text("Voulez-vous vraiment supprimer ce paiement ?"),
-        actions: [
-          TextButton(onPressed: () => Navigator.pop(context), child: Text("Annuler")),
-          TextButton(
-            onPressed: () async {
-              await _firestore.collection('paiements').doc(id).delete();
-              _fetchData();
-              Navigator.pop(context);
-            },
-            child: Text("Supprimer", style: TextStyle(color: Colors.red)),
-          ),
-        ],
-      ),
-    );
-  }
 
   void _ajouterPaiement() {
     TextEditingController montantController = TextEditingController();
@@ -202,244 +235,370 @@ class _GestionPaiementsState extends State<GestionPaiements> {
     String telAdmin = "+2250700000000";
     bool isLoadingPret = false;
     bool hasPret = false;
+    String? telDestinataire;
 
     showDialog(
-      context: context,
-      builder: (context) => StatefulBuilder(
-        builder: (context, setState) => AlertDialog(
-          title: Text("Ajouter un paiement"),
-          content: SingleChildScrollView(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text("Informations du bénéficiaire", style: TextStyle(fontWeight: FontWeight.bold)),
-                SizedBox(height: 8),
-                DropdownButtonFormField(
-                  hint: Text("Sélectionner un bénéficiaire"),
-                  items: _beneficiairesMap.entries.map((entry) {
-                    return DropdownMenuItem(
-                      value: entry.key,
-                      child: Text(entry.value),
-                    );
-                  }).toList(),
-                  onChanged: (value) async {
-                    setState(() {
-                      beneficiaireId = value as String;
-                      isLoadingPret = true;
-                      hasPret = false;
-                    });
+        context: context,
+        builder: (context) => FutureBuilder<Set<String>>(
+            future: _getBeneficiairesPayesCeMois(),
+            builder: (context, snapshot) {
+              if (snapshot.connectionState == ConnectionState.waiting) {
+                return AlertDialog(
+                  content: SizedBox(height: 100, child: Center(child: CircularProgressIndicator())),
+                );
+              }
 
-                    try {
-                      final snapshot = await FirebaseFirestore.instance
-                          .collection('demandedeservice')
-                          .where('userId', isEqualTo: beneficiaireId)
-                          .where('typeDemande', isEqualTo: 'pret')
-                          .where('statut', isEqualTo: 'validée')
-                          .where('montantRestant', isGreaterThan: 0)
-                          .orderBy('timestamp', descending: true)
-                          .limit(1)
-                          .get();
+              if (snapshot.hasError) {
+                return AlertDialog(
+                  title: Text("Erreur"),
+                  content: Text("Impossible de charger la liste des bénéficiaires."),
+                  actions: [TextButton(onPressed: () => Navigator.pop(context), child: Text("Fermer"))],
+                );
+              }
 
-                      if (snapshot.docs.isNotEmpty) {
-                        final doc = snapshot.docs.first.data();
-                        double montantRestant = (doc['montantRestant'] ?? 0).toDouble();
+              // Liste des bénéficiaires payés ce mois-ci
+              final beneficiairesPayes = snapshot.data ?? {};
 
-                        if (montantRestant > 0) {
-                          montantPretController.text = (doc['montantPret'] ?? 0).toString();
-                          montantRestantController.text = montantRestant.toString();
-                          periodeRemboursementController.text = (doc['periodeRemboursement'] ?? 1).toString();
-                          hasPret = true;
-                        } else {
-                          montantPretController.clear();
-                          montantRestantController.clear();
-                          periodeRemboursementController.clear();
-                          hasPret = false; // prêt fini => ne pas afficher les champs
-                        }
+              // Filtrer la map des bénéficiaires
+              final beneficiairesFiltres = Map<String, String>.from(_beneficiairesMap)
+              ..removeWhere((key, value) => beneficiairesPayes.contains(key));
+
+              return StatefulBuilder(
+                builder: (context, setState) => AlertDialog(
+                  title: Text("Ajouter un paiement"),
+                  content: SingleChildScrollView(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text("Informations du bénéficiaire", style: TextStyle(fontWeight: FontWeight.bold)),
+                        SizedBox(height: 8),
+                        DropdownButtonFormField(
+                          hint: Text("Sélectionner un bénéficiaire"),
+                          items: beneficiairesFiltres.entries.map((entry) {
+                          return DropdownMenuItem(
+                            value: entry.key,
+                            child: Text(entry.value),
+                          );
+                        }).toList(),
+                        onChanged: (value) async {
+                          setState(() {
+                            beneficiaireId = value as String;
+                            isLoadingPret = true;
+                            hasPret = false;
+                          });
+
+                          try {
+                            final userDoc = await FirebaseFirestore.instance
+                                .collection('users')
+                                .doc(beneficiaireId)
+                                .get();
+
+                            telDestinataire = userDoc.data()?['phone'] ?? "";
+
+                            final snapshot = await FirebaseFirestore.instance
+                                .collection('demandedeservice')
+                                .where('userId', isEqualTo: beneficiaireId)
+                                .where('typeDemande', isEqualTo: 'pret')
+                                .where('statut', isEqualTo: 'validée')
+                                .where('montantRestant', isGreaterThan: 0)
+                                .orderBy('timestamp', descending: true)
+                                .limit(1)
+                                .get();
+
+                            if (snapshot.docs.isNotEmpty) {
+                              final doc = snapshot.docs.first.data();
+                              double montantPret = (doc['montantPret'] ?? 0).toDouble();
+                              double montantRestant = (doc['montantRestant'] ?? montantPret).toDouble();
+
+                              if (montantRestant > 0) {
+                                montantPretController.text = montantPret.toString();
+                                montantRestantController.text = montantRestant.toString();
+                                periodeRemboursementController.text = (doc['tranchesRestantes'] ?? 1).toString();
+                                telDestinataire = doc['telDestinataire'] ?? telDestinataire;
+                                hasPret = true;
+                                if (kDebugMode) {
+                                  print("DEBUG Loan Load: montantPretController=${montantPretController.text}, montantRestantController=${montantRestantController.text}, periodeRemboursementController=${periodeRemboursementController.text}");
+                                }
+                              } else {
+                                montantPretController.clear();
+                                montantRestantController.clear();
+                                periodeRemboursementController.clear();
+                                hasPret = false;
+                              }
+                            }
+
+                          } catch (e) {
+                            if (kDebugMode) {
+                              print("Erreur chargement prêt: $e");
+                            }
+                          } finally {
+                            setState(() => isLoadingPret = false);
+                          }
+                        },
+                      ),
+                      SizedBox(height: 16),
+                      Text("Détails du paiement", style: TextStyle(fontWeight: FontWeight.bold)),
+                      SizedBox(height: 8),
+                      TextField(
+                        controller: montantController,
+                        decoration: InputDecoration(labelText: "Montant à verser", border: OutlineInputBorder()),
+                        keyboardType: TextInputType.number,
+                      ),
+                      SizedBox(height: 12),
+                      DropdownButtonFormField(
+                        hint: Text("Mode de paiement"),
+                        items: ['Orange Money', 'Virement Bancaire'].map((mode) {
+                          return DropdownMenuItem(value: mode, child: Text(mode));
+                        }).toList(),
+                        onChanged: (value) => setState(() => modePaiement = value as String),
+                      ),
+                      SizedBox(height: 16),
+                      if (hasPret && !isLoadingPret) ...[
+                        Text("Informations sur le prêt", style: TextStyle(fontWeight: FontWeight.bold)),
+                        SizedBox(height: 8),
+                        _readonlyField(label: "Montant du prêt", controller: montantPretController),
+                        SizedBox(height: 8),
+                        _readonlyField(label: "Période de remboursement (mois)", controller: periodeRemboursementController),
+                        SizedBox(height: 8),
+                        _readonlyField(label: "Montant restant à payer", controller: montantRestantController),
+                      ],
+                    ],
+                  ),
+                ),
+
+                actions: [
+                  TextButton(onPressed: () => Navigator.pop(context), child: Text("Annuler")),
+                  TextButton(
+                    onPressed: () async {
+                      if (kDebugMode) {
+                        print("🟡 Tentative d'ajout de paiement");
                       }
 
-                    } catch (e) {
-                      print("Erreur chargement prêt: $e");
-                    } finally {
-                      setState(() => isLoadingPret = false);
-                    }
-                  },
-                ),
-                SizedBox(height: 16),
-                Text("Détails du paiement", style: TextStyle(fontWeight: FontWeight.bold)),
-                SizedBox(height: 8),
-                TextField(
-                  controller: montantController,
-                  decoration: InputDecoration(labelText: "Montant à verser", border: OutlineInputBorder()),
-                  keyboardType: TextInputType.number,
-                ),
-                SizedBox(height: 12),
-                DropdownButtonFormField(
-                  hint: Text("Mode de paiement"),
-                  items: ['Orange Money', 'Virement Bancaire'].map((mode) {
-                    return DropdownMenuItem(value: mode, child: Text(mode));
-                  }).toList(),
-                  onChanged: (value) => setState(() => modePaiement = value as String),
-                ),
-                SizedBox(height: 16),
-                if (hasPret && !isLoadingPret) ...[
-                  Text("Informations sur le prêt", style: TextStyle(fontWeight: FontWeight.bold)),
-                  SizedBox(height: 8),
-                  _readonlyField(label: "Montant du prêt", controller: montantPretController),
-                  SizedBox(height: 8),
-                  _readonlyField(label: "Période de remboursement (mois)", controller: periodeRemboursementController),
-                  SizedBox(height: 8),
-                  _readonlyField(label: "Montant restant à payer", controller: montantRestantController),
-                ],
-              ],
-            ),
-          ),
-
-          actions: [
-            TextButton(onPressed: () => Navigator.pop(context), child: Text("Annuler")),
-            TextButton(
-              onPressed: () async {
-                print("🟡 Tentative d'ajout de paiement");
-
-                if (beneficiaireId == null || modePaiement == null || montantController.text.isEmpty) {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(content: Text("❌ Veuillez remplir tous les champs obligatoires.")),
-                  );
-                  return;
-                }
-
-                try {
-                  double montant = double.tryParse(montantController.text) ?? 0;
-                  double montantPret = double.tryParse(montantPretController.text) ?? 0;
-                  double montantRestant = double.tryParse(montantRestantController.text) ?? 0;
-                  int periode = int.tryParse(periodeRemboursementController.text) ?? 1;
-
-                  // Vérification si prêt déjà payé
-                  if (hasPret) {
-                    final paiementsExistants = await FirebaseFirestore.instance
-                        .collection('paiements')
-                        .where('beneficiaire', isEqualTo: beneficiaireId)
-                        .where('pretDeduit', isEqualTo: true)
-                        .orderBy('date', descending: true)
-                        .limit(1)
-                        .get();
-
-                    if (paiementsExistants.docs.isNotEmpty) {
-                      DateTime lastDate = (paiementsExistants.docs.first['date'] as Timestamp).toDate();
-                      DateTime now = DateTime.now();
-                      if (lastDate.month == now.month && lastDate.year == now.year) {
+                      if (beneficiaireId == null || modePaiement == null || montantController.text.isEmpty) {
                         ScaffoldMessenger.of(context).showSnackBar(
-                          SnackBar(content: Text("❌ Paiement déjà effectué ce mois-ci.")),
+                          SnackBar(content: Text("❌ Veuillez remplir tous les champs obligatoires.")),
                         );
                         return;
                       }
-                    }
 
-                    /*if (montantRestant <= 0) {
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        SnackBar(content: Text("✅ Le prêt a déjà été remboursé.")),
-                      );
-                      return;
-                    }
+                      try {
+                        double montant = double.tryParse(montantController.text) ?? 0.0;
+                        double montantRestant = double.tryParse(montantRestantController.text) ?? 0;
 
-                     */
-                  }
+                        if (hasPret) {
+                          final now = DateTime.now();
+                          final firstDayOfMonth = DateTime(now.year, now.month, 1);
+                          final lastDayOfMonth = DateTime(now.year, now.month + 1, 0, 23, 59, 59);
 
-                  double tranche = 0;
-                  int moisPayes = 0;
-                  double montantDeduit = 0;
+                          final paiementsExistants = await FirebaseFirestore.instance
+                              .collection('paiements')
+                              .where('beneficiaire', isEqualTo: beneficiaireId)
+                              .where('pretDeduit', isEqualTo: true)
+                              .where('statut', whereIn: ['En Attente', 'Validé', 'Effectué'])
+                              .where('date', isGreaterThanOrEqualTo: Timestamp.fromDate(firstDayOfMonth))
+                              .where('date', isLessThanOrEqualTo: Timestamp.fromDate(lastDayOfMonth))
+                              .get();
 
-                  if (hasPret) {
-                    tranche = montantPret / periode;
-                    moisPayes = (montant / tranche).floor();
-                    montantDeduit = moisPayes * tranche;
-                  }
+                          if (paiementsExistants.docs.isNotEmpty) {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(content: Text("❌ Paiement déjà effectué ce mois-ci.")),
+                            );
+                            return;
+                          }
+                        }
 
-                  if (tranche == 0 && hasPret) {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      SnackBar(content: Text("❌ Erreur : tranche invalide.")),
-                    );
-                    return;
-                  }
+                        double montantDeduit = 0;
+                        double montantFinal = montant;
+                        String? pretDocId;
+                        Map<String, dynamic> pretData = {};
+                        double nouveauMontantRestant = montantRestant;
+                        int nouvellesTranches = 0;
 
-                  double montantFinal = montant - montantDeduit;
-                  double nouveauMontantRestant = montantRestant - montantDeduit;
-                  if (nouveauMontantRestant < 0) nouveauMontantRestant = 0;
+                        if (hasPret) {
+                          final pretSnapshot = await FirebaseFirestore.instance
+                              .collection('demandedeservice')
+                              .where('userId', isEqualTo: beneficiaireId)
+                              .where('typeDemande', isEqualTo: 'pret')
+                              .where('statut', isEqualTo: 'validée')
+                              .where('montantRestant', isGreaterThan: 0)
+                              .orderBy('timestamp', descending: true)
+                              .limit(1)
+                              .get();
 
-                  // c'est la miise à jour du prêt
-                  if (hasPret) {
-                    final pretSnapshot = await FirebaseFirestore.instance
-                        .collection('demandedeservice')
-                        .where('userId', isEqualTo: beneficiaireId)
-                        .where('typeDemande', isEqualTo: 'pret')
-                        .where('statut', isEqualTo: 'validée')
-                        .where('montantRestant', isGreaterThan: 0)
-                        .orderBy('timestamp', descending: true)
-                        .limit(1)
-                        .get();
+                          if (pretSnapshot.docs.isNotEmpty) {
+                            final doc = pretSnapshot.docs.first;
+                            pretDocId = doc.id;
+                            pretData = doc.data();
 
-                    if (pretSnapshot.docs.isNotEmpty) {
-                      await FirebaseFirestore.instance
-                          .collection('demandedeservice')
-                          .doc(pretSnapshot.docs.first.id)
-                          .update({'montantRestant': nouveauMontantRestant});
-                    }
-                  }
+                            final double tranche = (doc['montantMensuel'] as num).toDouble();
+                            final int tranchesRestantes = doc['tranchesRestantes'] ?? 1;
 
-                  DocumentSnapshot userDoc = await FirebaseFirestore.instance.collection('users').doc(beneficiaireId).get();
-                  String telDestinataire = userDoc['phone'] ?? '';
+                            if (tranche == 0) {
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                SnackBar(content: Text("Le montant mensuel du prêt est invalide.")),
+                              );
+                              return;
+                            }
 
-                  await FirebaseFirestore.instance.collection('paiements').add({
-                    'beneficiaire': beneficiaireId,
-                    'montant': montant,
-                    'montantPret': montantDeduit,
-                    'montantFinal': montantFinal,
-                    'modePaiement': modePaiement,
-                    'pretDeduit': hasPret,
-                    'statut': 'En Attente',
-                    'date': Timestamp.now(),
-                    'telAdmin': telAdmin,
-                    'telDestinataire': telDestinataire,
-                  });
 
-                  print("✅ Paiement ajouté avec succès");
+                            int nbTranchesPayees = (montant / tranche).floor();
+                            if (nbTranchesPayees > 1) nbTranchesPayees = 1;
 
-                  _fetchData();
-                  Navigator.pop(context);
-                } catch (e) {
-                  print("❌ Erreur lors de l'ajout du paiement : $e");
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(content: Text("Erreur lors de l'ajout du paiement.")),
-                  );
-                }
-              },
-              child: Text("Ajouter"),
-            ),
+                            if (nbTranchesPayees == 0) {
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                SnackBar(content: Text(" Le montant est insuffisant pour couvrir une tranche de prêt.")),
+                              );
+                              return;
+                            }
 
-          ],
+                            montantDeduit = nbTranchesPayees * tranche;
+                            montantFinal = montant - montantDeduit;
+
+                            nouveauMontantRestant = montantRestant - montantDeduit;
+                            if (nouveauMontantRestant < 0) nouveauMontantRestant = 0;
+
+                            nouvellesTranches = tranchesRestantes - nbTranchesPayees;
+                            if (nouvellesTranches < 0) nouvellesTranches = 0;
+
+                            // Mise à jour du prêt
+                            final Map<String, dynamic> miseAJourPret = {
+                              'montantRestant': nouveauMontantRestant,
+                              'tranchesRestantes': nouvellesTranches,
+                            };
+
+                            if (nouveauMontantRestant == 0) {
+                              miseAJourPret['rembourse'] = true;
+                            }
+
+                            await FirebaseFirestore.instance
+                                .collection('demandedeservice')
+                                .doc(pretDocId)
+                                .update(miseAJourPret);
+                          }
+                        }
+
+                        // Enregistrement du paiement
+                        await FirebaseFirestore.instance.collection('paiements').add({
+                          'beneficiaire': beneficiaireId,
+                          'montant': montant.toDouble(),         // Converti en double
+                          'montantPret': montantDeduit.toDouble(),
+                          'montantFinal': montantFinal.toDouble(),
+                          'modePaiement': modePaiement,
+                          'pretDeduit': hasPret,
+                          'statut': 'En Attente',
+                          'date': Timestamp.now(),
+                          'telAdmin': telAdmin,
+                          'telDestinataire': telDestinataire,
+                          if (hasPret) ...{
+                            'pretDocId': pretDocId,
+                            'montantRestant': nouveauMontantRestant.toDouble(),
+                            'tranchesRestantes': nouvellesTranches,  // int sans toDouble()
+                            'datePret': pretData['dateDemandePret'] ?? DateFormat('yyyy-MM-dd').format(DateTime.now()),
+                            'periodeRemboursement': pretData['periodeRemboursement'],
+                            'montantPretInitial': (pretData['montantPret'] as num).toDouble(),
+                            'rembourse': nouveauMontantRestant == 0,
+                          },
+                        });
+
+                        if (kDebugMode) {
+                          print("Paiement ajouté avec succès");
+                        }
+
+                        _fetchData();
+                        Navigator.pop(context);
+                      } catch (e) {
+                        if (kDebugMode) {
+                          print("❌ Erreur lors de l'ajout du paiement : $e");
+                        }
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(content: Text("Erreur lors de l'ajout du paiement.")),
+                        );
+                      }
+                    },
+                    child: Text("Ajouter"),
+                  )
+
+                ],
+                ),
+              );
+            },
         ),
-      ),
     );
   }
 
+  Future<Set<String>> _getBeneficiairesPayesCeMois() async {
+    final now = DateTime.now();
+    final firstDayOfMonth = DateTime(now.year, now.month, 1);
+    final lastDayOfMonth = DateTime(now.year, now.month + 1, 0, 23, 59, 59);
 
+    final snapshot = await FirebaseFirestore.instance
+        .collection('paiements')
+        .where('pretDeduit', isEqualTo: true) // Ou selon ton critère de paiement
+        .where('statut', whereIn: ['En Attente', 'Validé', 'Effectué'])
+        .where('date', isGreaterThanOrEqualTo: Timestamp.fromDate(firstDayOfMonth))
+        .where('date', isLessThanOrEqualTo: Timestamp.fromDate(lastDayOfMonth))
+        .get();
 
+    // Extraire les IDs des bénéficiaires payés ce mois-ci
+    final Set<String> payesIds = snapshot.docs.map((doc) => doc['beneficiaire'] as String).toSet();
 
+    return payesIds;
+  }
 
 
   @override
   Widget build(BuildContext context) {
-    // xa c'est pour tier par statut
-    final paiementsTries = List<Map<String, dynamic>>.from(_paiements)
+    String moisSelectionne = 'Tous';
+
+    final moisDisponibles = ['Tous', 'Janvier', 'Février', 'Mars', 'Avril', 'Mai', 'Juin',
+      'Juillet', 'Août', 'Septembre', 'Octobre', 'Novembre', 'Décembre'];
+
+    final paiementsFiltres = moisSelectionne == 'Tous'
+        ? _paiements
+        : _paiements.where((p) {
+      final parts = p['date'].split('/');
+      final datePaiement = DateTime(
+          int.parse(parts[2]), int.parse(parts[1]), int.parse(parts[0])
+      );
+      return datePaiement.month == moisDisponibles.indexOf(moisSelectionne);
+    }).toList();
+
+
+    final paiementsTries = List<Map<String, dynamic>>.from(paiementsFiltres)
       ..sort((a, b) {
         if (a['statut'] == 'En Attente' && b['statut'] != 'En Attente') return -1;
         if (a['statut'] != 'En Attente' && b['statut'] == 'En Attente') return 1;
         return 0;
       });
 
+
     return Scaffold(
       appBar: AppBar(
         title: Text("Gestion des paiements"),
         centerTitle: true,
+        bottom: PreferredSize(
+          preferredSize: Size.fromHeight(60),
+          child: Padding(
+            padding: const EdgeInsets.only(bottom: 12.0),
+            child: DropdownButton<String>(
+              value: moisSelectionne,
+              icon: Icon(Icons.arrow_drop_down),
+              underline: Container(height: 2, color: Colors.green),
+              items: moisDisponibles.map((String mois) {
+                return DropdownMenuItem<String>(
+                  value: mois,
+                  child: Text(mois),
+                );
+              }).toList(),
+              onChanged: (String? newValue) {
+                setState(() {
+                  moisSelectionne = newValue!;
+                });
+              },
+            ),
+          ),
+        ),
+
         actions: [
           IconButton(
             icon: Icon(Icons.download, color: Colors.green,),
@@ -490,7 +649,7 @@ class _GestionPaiementsState extends State<GestionPaiements> {
                             _infoChip("Date", paiement['date']),
                           ],
                         ),
-                        if (paiement['montantPret'] > 0 && paiement['tranchesRestantes'] > 0) ...[
+                        /*if (paiement['montantPret'] > 0 && paiement['tranchesRestantes'] > 0) ...[
                           Divider(),
                           Text("Détails du prêt", style: TextStyle(fontWeight: FontWeight.bold)),
                           SizedBox(height: 6),
@@ -504,6 +663,8 @@ class _GestionPaiementsState extends State<GestionPaiements> {
                           _infoChip("Montant restant", "${paiement['montantRestant']}"),
                           _infoChip("Date prêt", paiement['datePret']),
                         ],
+                         */
+
                         if (paiement['statut'] == 'En Attente') ...[
                           Divider(),
                           Row(
@@ -558,6 +719,10 @@ class _GestionPaiementsState extends State<GestionPaiements> {
 
 
   void _afficherDetailsPaiement(BuildContext context, Map<String, dynamic> paiement) {
+    if (kDebugMode) {
+      print("🟢 Paiement reçu : $paiement");
+    }
+
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
@@ -596,14 +761,17 @@ class _GestionPaiementsState extends State<GestionPaiements> {
                 _detailItem("Mode de paiement", paiement['modePaiement']),
                 _detailItem("Date", "${paiement['date']}"),
 
-                if ((paiement['montantPret'] ?? 0) > 0 && (paiement['tranchesRestantes'] ?? 0) > 0) ...[
+                if ((paiement['montantPret'] ?? 0) > 0 ||
+                    (paiement['montantRestant'] ?? 0) > 0 ||
+                    (paiement['tranchesRestantes'] ?? 0) > 0) ...[
                   Divider(height: 32),
                   Text("Prêt associé", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
                   SizedBox(height: 8),
-                  _detailItem("Montant du prêt", "${paiement['montantPret']}"),
-                  _detailItem("Montant restant", "${paiement['montantRestant']}"),
-                  _detailItem("Tranches restantes", "${paiement['tranchesRestantes']}"),
-                  _detailItem("Date du prêt", "${paiement['datePret']}"),
+                  _detailItem("Montant du prêt", "${paiement['montantPret'] ?? '-'}"),
+                  _detailItem("Montant restant", "${paiement['montantRestant'] ?? '-'}"),
+                  _detailItem("Tranches restantes", "${paiement['tranchesRestantes'] ?? '-'}"),
+                  _detailItem("Date du prêt", "${paiement['datePret'] ?? '-'}"),
+                  _detailItem("Montant salaire final", "${paiement['montantFinal'] ?? '-'}"),
                 ],
 
                 SizedBox(height: 24),
@@ -700,8 +868,12 @@ class _GestionPaiementsState extends State<GestionPaiements> {
 
       ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(" Fichier exporté : $filePath")));
     } catch (e, stack) {
-      print("Erreur lors de l'export Excel : $e");
-      print("StackTrace : $stack");
+      if (kDebugMode) {
+        print("Erreur lors de l'export Excel : $e");
+      }
+      if (kDebugMode) {
+        print("StackTrace : $stack");
+      }
       ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("Erreur lors de l'export : $e")));
     }
   }

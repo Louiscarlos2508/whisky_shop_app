@@ -157,7 +157,7 @@ class _AdminDemandeServiceState extends State<AdminDemandeService> {
                           if (type.trim().toLowerCase() == 'pret' &&
                               montantPret != null &&
                               periodeRemboursement != null)
-                            Text("Prêt demandé : ${montantPret.toString()} FCFA sur $periodeRemboursement"),
+                            Text("Prêt demandé : ${montantPret.toString()} FCFA sur $periodeRemboursement mois"),
                           if (audioBase64 != null)
                             TextButton.icon(
                               onPressed: () => _playAudio(docId, audioBase64),

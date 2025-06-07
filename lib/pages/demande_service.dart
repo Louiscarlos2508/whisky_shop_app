@@ -37,6 +37,7 @@ class _DemandeServiceState extends State<DemandeService> {
   String? nomUtilisateur;
   String? posteUtilisateur;
   String? pointDeVenteId;
+  String? phoneNumber;
 
   String _typeDemande = 'absence';
   String? _sousType; // urgence, manifestation, maladie, etc.
@@ -51,6 +52,7 @@ class _DemandeServiceState extends State<DemandeService> {
 
   Future<void> _initRecorder() async {
     final micStatus = await Permission.microphone.request();
+    if (!mounted) return;
     if (!micStatus.isGranted) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text("Microphone non autorisé")),
@@ -76,6 +78,7 @@ class _DemandeServiceState extends State<DemandeService> {
           nomUtilisateur = data?['fullName'] ?? '';
           posteUtilisateur = data?['poste'] ?? '';
           pointDeVenteId = data?['pointDeVenteId'] ?? '';
+          phoneNumber = data?['phone'] ?? '';
         });
       }
     }
@@ -158,15 +161,18 @@ class _DemandeServiceState extends State<DemandeService> {
 
     double? montantPret;
     int? periode;
-    double montantRestant = 0.0;
 
     if (_typeDemande == 'pret') {
       montantPret = double.tryParse(_montantPretController.text);
       periode = int.tryParse(_periodeRemboursementController.text);
-      if (montantPret != null && periode != null && periode > 0) {
-        montantRestant = montantPret;
+      if (montantPret == null || periode == null || periode <= 0) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text("Veuillez entrer un montant et une période valides.")),
+        );
+        return;
       }
     }
+
 
     await FirebaseFirestore.instance.collection('demandedeservice').add({
       'texte': _textController.text.trim().isNotEmpty ? _textController.text.trim() : null,
@@ -181,9 +187,15 @@ class _DemandeServiceState extends State<DemandeService> {
       'typeDemande': _typeDemande,
       'sousType': _sousType,
       'montantPret': montantPret,
+      'telDestinataire': phoneNumber,
       'periodeRemboursement': periode,
-      'montantRestant': montantRestant,
+      'montantRestant': montantPret, // reste à rembourser initialisé au montant total
+      'montantMensuel': (montantPret! / periode!).round(),
+      'moisDejaRembourses': 0,
+      'tranchesRestantes': periode,
+      'rembourse': false,
       'dateDemandePret': _typeDemande == 'pret' ? DateFormat('yyyy-MM-dd').format(DateTime.now()) : null,
+      'userId': FirebaseAuth.instance.currentUser?.uid ?? ''
     });
 
     ScaffoldMessenger.of(context).showSnackBar(
@@ -307,6 +319,8 @@ class _DemandeServiceState extends State<DemandeService> {
   }
 }
 
+
 extension StringExtension on String {
-  String capitalize() => this[0].toUpperCase() + substring(1);
+  String capitalize() => isNotEmpty ? '${this[0].toUpperCase()}${substring(1)}' : '';
 }
+

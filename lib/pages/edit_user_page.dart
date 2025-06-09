@@ -13,7 +13,7 @@ class EditUserPage extends StatefulWidget {
   const EditUserPage({super.key, required this.userId});
 
   @override
-  _EditUserPageState createState() => _EditUserPageState();
+  State<EditUserPage> createState() => _EditUserPageState();
 }
 
 class _EditUserPageState extends State<EditUserPage> {
@@ -26,14 +26,15 @@ class _EditUserPageState extends State<EditUserPage> {
   final TextEditingController _fullNameController = TextEditingController();
   final TextEditingController _phoneController = TextEditingController();
   final TextEditingController _startDateController = TextEditingController();
-  //final TextEditingController _maritalStatusController = TextEditingController();
   final TextEditingController _addressController = TextEditingController();
   final TextEditingController _emergencyContactController = TextEditingController();
 
   String? _identityDocUrl;
   String? _birthCertUrl;
+  String? _diplomaUrl;
   bool _identityDocValidated = false;
   bool _birthCertValidated = false;
+  bool _diplomaValidated = false;
 
   String? _selectedRole;
   String? _selectedEducationLevel;
@@ -97,11 +98,6 @@ class _EditUserPageState extends State<EditUserPage> {
   }
 
   Future<void> _loadUser() async {
-    /*await _firestore.collection('users').doc(widget.userId).update({
-      'maritalStatus': 'Célibataire'
-    });
-
-     */
     try {
       DocumentSnapshot doc = await _firestore.collection('users').doc(widget.userId).get();
       if (!doc.exists) {
@@ -123,6 +119,7 @@ class _EditUserPageState extends State<EditUserPage> {
       _birthCertUrl = data['acte_de_naissance'];
       _identityDocValidated = data['pieceIdentiteValidated'] ?? false;
       _birthCertValidated = data['acte_de_naissanceValidated'] ?? false;
+      _diplomaValidated = data['diplomesValidated'] ?? false;
       _selectedRole = data['role'];
       _selectedEducationLevel = data['educationLevel'];
       _isRegisteredCnss = data['registeredCnss'] ?? false;
@@ -208,7 +205,7 @@ class _EditUserPageState extends State<EditUserPage> {
           ? 'la pièce d\'identité'
           : docType == 'acte_de_naissance'
           ? 'l\'acte de naissance'
-          : 'le document';
+          : 'le diplome';
 
       await _firestore
           .collection('users')
@@ -236,6 +233,10 @@ class _EditUserPageState extends State<EditUserPage> {
           _birthCertUrl = null;
           _birthCertValidated = false;
         }
+        if (docType == 'diplomes') {
+          _diplomaUrl = null;
+          _diplomaValidated = false;
+        }
       });
     } catch (e) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -255,8 +256,9 @@ class _EditUserPageState extends State<EditUserPage> {
         setState(() {
           _identityDocValidated = data['pieceIdentiteValidated'] == true;
           _birthCertValidated = data['acte_de_naissanceValidated'] == true;
+          _diplomaValidated = data['diplomesValidated'] == true;
         });
-        print("État validé: _identityDocValidated=$_identityDocValidated, _birthCertValidated=$_birthCertValidated");
+        print("État validé: _identityDocValidated=$_identityDocValidated, _birthCertValidated=$_birthCertValidated, _diplomaValidated=$_diplomaValidated");
       }
     } catch (e) {
       print("Erreur chargement des statuts de validation : $e");
@@ -281,6 +283,9 @@ class _EditUserPageState extends State<EditUserPage> {
         }
         if (docType == 'acte_de_naissance') {
           _birthCertValidated = true;
+        }
+        if (docType == 'diplomes') {
+          _diplomaValidated = true;
         }
       });
     } catch (e) {
@@ -517,16 +522,6 @@ class _EditUserPageState extends State<EditUserPage> {
                   contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 14),
                 ),
               ),
-              /*TextFormField(
-                controller: _maritalStatusController,
-                decoration: const InputDecoration(
-                  labelText: "Situation familiale",
-                  border: OutlineInputBorder(),
-                  contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 14),
-                ),
-              ),
-
-               */
               const SizedBox(height: 8),
               TextFormField(
                 controller: _addressController,
@@ -559,6 +554,7 @@ class _EditUserPageState extends State<EditUserPage> {
                 validated: _identityDocValidated,
               ),
 
+
               _buildDocumentCard(
                 docType: 'acte_de_naissance',
                 title: "Acte de naissance",
@@ -566,16 +562,12 @@ class _EditUserPageState extends State<EditUserPage> {
                 validated: _birthCertValidated,
               ),
 
-              /*const SizedBox(height: 24),
-              ElevatedButton(
-                onPressed: _saveUser,
-                child: const Padding(
-                  padding: EdgeInsets.symmetric(vertical: 14),
-                  child: Text("Sauvegarder", style: TextStyle(fontSize: 18)),
-                ),
+              _buildDocumentCard(
+                docType: 'diplomes',
+                title: "Diplômes",
+                docBase64: _diplomaUrl,
+                validated: _diplomaValidated,
               ),
-
-               */
             ],
           ),
         ),

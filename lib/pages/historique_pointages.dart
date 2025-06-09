@@ -3,7 +3,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:intl/intl.dart';
 
 class HistoriquePointages extends StatefulWidget {
-  const HistoriquePointages({Key? key}) : super(key: key);
+  const HistoriquePointages({super.key});
 
   @override
   State<HistoriquePointages> createState() => _HistoriquePointagesState();
@@ -56,7 +56,7 @@ class _HistoriquePointagesState extends State<HistoriquePointages> {
             rows: rows,
             dataRowMinHeight: 56,
             dataRowMaxHeight: 80,
-            headingRowColor:MaterialStateProperty.all(Colors.blue),
+            headingRowColor:WidgetStateProperty.all(Colors.blue),
             dividerThickness: 0.5,
           ),
         ),

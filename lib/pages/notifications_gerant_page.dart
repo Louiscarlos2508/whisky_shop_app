@@ -153,7 +153,7 @@ class _NotificationsGerantPageState extends State<NotificationsGerantPage> {
                 final fullName = item['fullName'] ?? 'Employé';
                 final commentaire = item['commentaire'] ?? '';
                 final isRead = item['lu'] == true;
-                if (!isRead)
+                if (!isRead) {
                   Container(
                     padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                     decoration: BoxDecoration(
@@ -165,6 +165,7 @@ class _NotificationsGerantPageState extends State<NotificationsGerantPage> {
                       style: TextStyle(color: Colors.white, fontSize: 12),
                     ),
                   );
+                }
 
 
               return Container(

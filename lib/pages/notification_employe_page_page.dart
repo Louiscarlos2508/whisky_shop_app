@@ -4,7 +4,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:intl/intl.dart';
 
 class NotificationsEmployePage extends StatefulWidget {
-  const NotificationsEmployePage({Key? key}) : super(key: key);
+  const NotificationsEmployePage({super.key});
 
   @override
   State<NotificationsEmployePage> createState() => _NotificationsEmployePageState();

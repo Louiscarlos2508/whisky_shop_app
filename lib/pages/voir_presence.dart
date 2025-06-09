@@ -4,7 +4,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 
 class VoirPresence extends StatefulWidget {
-  const VoirPresence({Key? key}) : super(key: key);
+  const VoirPresence({super.key});
 
   @override
   State<VoirPresence> createState() => _VoirPresenceState();

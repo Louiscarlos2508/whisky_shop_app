@@ -3,6 +3,8 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 
 class SuiviGerantPage extends StatefulWidget {
+  const SuiviGerantPage({super.key});
+
   @override
   _SuiviGerantPageState createState() => _SuiviGerantPageState();
 }

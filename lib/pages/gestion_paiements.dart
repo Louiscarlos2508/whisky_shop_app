@@ -1,11 +1,8 @@
-import 'dart:io';
-import 'package:external_path/external_path.dart';
+import 'package:file_saver/file_saver.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:intl/intl.dart';
-import 'package:path_provider/path_provider.dart';
-import 'package:permission_handler/permission_handler.dart';
 import 'package:syncfusion_flutter_xlsio/xlsio.dart' as xlsio;
 import 'package:url_launcher/url_launcher.dart';
 
@@ -604,7 +601,7 @@ class _GestionPaiementsState extends State<GestionPaiements> {
             icon: Icon(Icons.download, color: Colors.green,),
             tooltip: "Exporter en Excel",
             onPressed: () {
-              _exporterPaiementsEnAttente(_paiements);
+              _exporterPaiementsEnAttente(_paiements, context);
             },
           ),
         ],
@@ -818,23 +815,18 @@ class _GestionPaiementsState extends State<GestionPaiements> {
 
 
 
-  Future<void> _exporterPaiementsEnAttente(List<Map<String, dynamic>> paiements) async {
+  Future<void> _exporterPaiementsEnAttente(List<Map<String, dynamic>> paiements, BuildContext context) async {
     try {
       final paiementsEnAttente = paiements.where((p) => p['statut'] == 'En Attente').toList();
 
       if (paiementsEnAttente.isEmpty) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("Aucun paiement en attente à exporter.")));
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text("Aucun paiement en attente à exporter.")),
+        );
         return;
       }
 
-      if (Platform.isAndroid && (await _androidVersion()) <= 10) {
-        final status = await Permission.storage.request();
-        if (!status.isGranted) {
-          ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("Permission de stockage refusée")));
-          return;
-        }
-      }
-
+      // Créer le fichier Excel
       final workbook = xlsio.Workbook();
       final sheet = workbook.worksheets[0];
       sheet.name = 'PaiementsEnAttente';
@@ -848,43 +840,43 @@ class _GestionPaiementsState extends State<GestionPaiements> {
         sheet.getRangeByIndex(i + 2, 1).setText(paiement['beneficiaire'] ?? '');
         sheet.getRangeByIndex(i + 2, 2).setText(paiement['telDestinataire'] ?? '');
         sheet.getRangeByIndex(i + 2, 3).setNumber(
-            double.tryParse((paiement['montantFinal'] ?? paiement['montant'] ?? 0).toString()) ?? 0);
+          double.tryParse((paiement['montantFinal'] ?? paiement['montant'] ?? 0).toString()) ?? 0,
+        );
       }
 
-      final List<int> bytes = workbook.saveAsStream();
+      final Uint8List bytes = Uint8List.fromList(workbook.saveAsStream());
       workbook.dispose();
 
-      String downloadsPath;
-      if (Platform.isAndroid) {
-        downloadsPath = await ExternalPath.getExternalStoragePublicDirectory(ExternalPath.DIRECTORY_DOWNLOAD);
+      // Enregistrer le fichier avec file_saver
+      final fileName = 'paiements_en_attente_${DateTime.now().millisecondsSinceEpoch}.xlsx';
+      print('Taille du fichier en bytes: ${bytes.length}');
+
+      final result = await FileSaver.instance.saveFile(
+        name: fileName,
+        bytes: bytes,
+        ext: 'xlsx',
+        mimeType: MimeType.custom,
+        customMimeType: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+      );
+
+      if (result != null) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text("Fichier exporté avec succès !")),
+        );
       } else {
-        downloadsPath = (await getApplicationDocumentsDirectory()).path;
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text("Erreur : échec de l'enregistrement du fichier.")),
+        );
       }
-
-      final filePath = '$downloadsPath/paiements_en_attente_${DateTime.now().millisecondsSinceEpoch}.xlsx';
-      final file = File(filePath);
-      await file.create(recursive: true);
-      await file.writeAsBytes(bytes);
-
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(" Fichier exporté : $filePath")));
     } catch (e, stack) {
       if (kDebugMode) {
-        print("Erreur lors de l'export Excel : $e");
-      }
-      if (kDebugMode) {
+        print("Erreur : $e");
         print("StackTrace : $stack");
       }
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("Erreur lors de l'export : $e")));
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text("Erreur lors de l'export : $e")),
+      );
     }
   }
-
-
-  Future<int> _androidVersion() async {
-    if (!Platform.isAndroid) return 0;
-    final version = await Process.run('getprop', ['ro.build.version.sdk']);
-    return int.tryParse(version.stdout.toString().trim()) ?? 30;
-  }
-
-
 
 }

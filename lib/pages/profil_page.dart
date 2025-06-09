@@ -42,6 +42,7 @@ class _ProfilePageState extends State<ProfilPage> {
 
   String? _acteDeNaissanceUrl;
   String? _pieceIdentiteUrl;
+  String? _diplomeUrl;
 
   File? _selectedFile;
   String? _selectedFileType;
@@ -195,6 +196,7 @@ class _ProfilePageState extends State<ProfilPage> {
         _emergencyContactController.text = data?['emergencyContact'] ?? '';
         _pieceIdentiteUrl = data?['pieceIdentite'];
         _acteDeNaissanceUrl = data?['acte_de_naissance'];
+        _diplomeUrl = data?['diplomes'];
 
         _isEducationLevelEditable = (_selectedEducationLevel == null || _selectedEducationLevel!.isEmpty);
         _isMaritalStatusEditable = (_selectedMaritalStatuses == null || _selectedMaritalStatuses!.isEmpty);
@@ -309,6 +311,8 @@ class _ProfilePageState extends State<ProfilPage> {
           _acteDeNaissanceUrl = 'UPLOADED';
         } else if (_selectedFileType == 'pieceIdentite') {
           _pieceIdentiteUrl = 'UPLOADED';
+        } else{
+          _diplomeUrl = 'UPLOADED';
         }
         _selectedFile = null;
         _selectedFileType = null;
@@ -550,6 +554,9 @@ class _ProfilePageState extends State<ProfilPage> {
 
             if (_acteDeNaissanceUrl == null || _acteDeNaissanceUrl == 'UPLOADED')
               _buildUploadSection("Acte de naissance", "acte_de_naissance", _acteDeNaissanceUrl),
+
+            if (_diplomeUrl == null || _diplomeUrl == 'UPLOADED')
+              _buildUploadSection("Diplômes", "diplomes", _diplomeUrl),
 
 
             const SizedBox(height: 20),
